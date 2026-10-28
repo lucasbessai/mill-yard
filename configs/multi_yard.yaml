@@ -1,0 +1,21 @@
+# Illustrative data: minutes, metres, tonnes; not a calibrated yard.
+horizon: 120
+wake_mode: interval
+wake_interval: 5
+stops:
+  - {id: stop-1, location: {x: 0, y: 0}, max_loaders: 2}
+  - {id: stop-2, location: {x: 0, y: 30}, max_loaders: 2}
+piles:
+  - {id: pile-1, location: {x: 100, y: 0}, capacity: 200, initial: 200, max_loaders: 4}
+  - {id: pile-2, location: {x: 100, y: 40}, capacity: 200, initial: 0, max_loaders: 4}
+infeeds:
+  - {id: mill-1, location: {x: 200, y: 0}, capacity: 80, initial: 0, consumption_rate: 1, low: 20, target: 60, max_loaders: 2}
+  - {id: mill-2, location: {x: 200, y: 40}, capacity: 80, initial: 20, consumption_rate: 0.5, low: 10, target: 50, max_loaders: 2}
+loaders:
+  - {id: loader-1, location: {x: 100, y: 0}, capacity: 20, speed: 100, pickup_rate: 5, deposit_rate: 5}
+  - {id: loader-2, location: {x: 0, y: 0}, capacity: 15, speed: 100, pickup_rate: 5, deposit_rate: 5}
+arrivals:
+  - {id: truck-1, time: 0, quantity: 35}
+  - {id: truck-2, time: 1, quantity: 30}
+  - {id: truck-3, time: 2, quantity: 30}
+  - {id: truck-4, time: 3, quantity: 30}

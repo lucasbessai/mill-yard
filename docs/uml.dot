@@ -1,0 +1,60 @@
+// Main classes in the multi-location simulation. Render with:
+// dot -Tpng -Gdpi=150 docs/uml.dot -o docs/images/uml.png
+digraph MillYard {
+  graph [rankdir=TB, bgcolor="white", pad=0.18, nodesep=0.28, ranksep=0.45,
+         splines=polyline, fontname="Arial", fontsize=12, compound=true];
+  node [shape=record, fontname="Arial", fontsize=11, color="#334155",
+        penwidth=1.1, style="filled", fillcolor="#f8fafc", margin="0.10,0.06"];
+  edge [fontname="Arial", fontsize=9, color="#64748b", arrowsize=0.7];
+
+  subgraph cluster_model {
+    label="mill_yard.model"; color="#8bbbd2"; style="rounded,filled"; fillcolor="#f2f9fc";
+    YardScenario [label="{YardScenario|horizon\larrivals\lwake_mode\lwake_interval\l}", fillcolor="#e0f2fe"];
+    StopSpec [label="{StopSpec}"];
+    PileSpec [label="{PileSpec}"];
+    InfeedSpec [label="{InfeedSpec}"];
+    LoaderSpec [label="{LoaderSpec}"];
+    { rank=same; StopSpec; PileSpec; InfeedSpec; LoaderSpec; }
+    YardScenario -> {StopSpec PileSpec InfeedSpec LoaderSpec} [arrowtail=diamond, dir=back];
+    YardState [label="{YardState|time\lqueue, stops\lconsumed, starvation\l}", fillcolor="#e0f2fe"];
+    TruckState [label="{TruckState}"];
+    InventoryState [label="{InventoryState|amount\lincoming, outgoing\l}"];
+    LoaderState [label="{LoaderState|location, phase\lcarried, assignment\l}"];
+    Assignment [label="{Assignment|loader_id\lsource_id\ldestination_id\lquantity\l}"];
+    { rank=same; TruckState; InventoryState; LoaderState; }
+    YardState -> {TruckState InventoryState LoaderState} [arrowtail=diamond, dir=back];
+    LoaderState -> Assignment [label="current job"];
+  }
+
+  subgraph cluster_dispatch {
+    label="mill_yard.policies"; color="#8fc7a2"; style="rounded,filled"; fillcolor="#f1faf4";
+    JointPolicy [label="{«protocol»\nJointPolicy|+ choose(state, scenario)\l+ wake_levels(state, scenario)\l}", fillcolor="#dcfce7"];
+    ThresholdPolicy [label="{ThresholdPolicy}"];
+    RandomPolicy [label="{RandomPolicy}"];
+    ScoredPolicy [label="{ScoredPolicy}"];
+    ScoredParameters [label="{ScoredParameters}"];
+    { rank=same; ThresholdPolicy; RandomPolicy; ScoredPolicy; }
+    ThresholdPolicy -> JointPolicy [arrowhead=empty, style=dashed];
+    RandomPolicy -> JointPolicy [arrowhead=empty, style=dashed];
+    ScoredPolicy -> JointPolicy [arrowhead=empty, style=dashed];
+    ScoredPolicy -> ScoredParameters;
+  }
+
+  subgraph cluster_simulation {
+    label="mill_yard.simulation"; color="#d2b269"; style="rounded,filled"; fillcolor="#fffbeb";
+    YardSimulation [label="{YardSimulation|+ run() → YardResult\l}", fillcolor="#fef3c7"];
+    YardResult [label="{YardResult|scenario, state\lcompleted_trucks, events\l}"];
+  }
+  subgraph cluster_records {
+    label="mill_yard.records"; color="#b0a2cb"; style="rounded,filled"; fillcolor="#f8f5fc";
+    Recorder [label="{Recorder|+ emit(state, event)\l}"];
+  }
+  YardSimulation -> Recorder;
+  YardSimulation -> YardResult [style=dashed, label="returns"];
+  YardSimulation -> YardScenario [label="uses"];
+  YardSimulation -> YardState [label="updates"];
+  YardSimulation -> JointPolicy [label="requests decisions"];
+  JointPolicy -> Assignment [style=dashed, label="selects", constraint=false];
+  YardResult -> YardScenario [style=dashed];
+  YardResult -> YardState [style=dashed];
+}

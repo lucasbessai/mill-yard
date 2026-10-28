@@ -1,0 +1,19 @@
+# Minutes, metres, tonnes. Illustrative one-infeed scenario, not a calibrated yard.
+# 840-minute day, 90 t/h demand, and 35 t transfer capacity are inspired by
+# Beaudoin et al. (2012), pp. 180–181; all other values are assumptions.
+horizon: 840
+wake_mode: interval
+wake_interval: 5
+stops:
+  - {id: stop-1, location: {x: 0, y: 0}, max_loaders: 2}
+piles:
+  - {id: pile-1, location: {x: 150, y: 0}, capacity: 2000, initial: 600, max_loaders: 4}
+infeeds:
+  - {id: mill-1, location: {x: 300, y: 0}, capacity: 300, initial: 100, consumption_rate: 1.5, low: 20, target: 80, max_loaders: 1}
+loaders:
+  # Pickup and deposit rates are assumptions for the phased handling model.
+  - {id: loader-1, location: {x: 150, y: 0}, capacity: 35, speed: 416.67, pickup_rate: 8, deposit_rate: 8}
+arrivals:
+  - {id: truck-1, time: 0, quantity: 35}
+  - {id: truck-2, time: 25, quantity: 35}
+  - {id: truck-3, time: 50, quantity: 35}

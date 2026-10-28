@@ -1,0 +1,53 @@
+# Illustrative deterministic scenario: minutes, metres, tonnes.
+horizon: 180
+wake_mode: interval
+wake_interval: 5
+stops:
+- id: bay-1
+  location:
+    x: 0
+    y: 0
+  max_loaders: 2
+- id: bay-2
+  location:
+    x: 0
+    y: 30
+  max_loaders: 2
+piles:
+- id: pile
+  location:
+    x: 100
+    y: 15
+  capacity: 500
+  initial: 200
+  max_loaders: 4
+infeeds:
+- id: mill
+  location:
+    x: 200
+    y: 15
+  capacity: 100
+  initial: 60
+  consumption_rate: 1
+  low: 20
+  target: 70
+  max_loaders: 2
+loaders:
+- id: loader-1
+  location:
+    x: 100
+    y: 15
+  capacity: 20
+  speed: 100
+  pickup_rate: 5
+  deposit_rate: 5
+arrivals:
+- id: truck-001
+  time: 0.0
+  quantity: 30
+- id: truck-002
+  time: 60.0
+  quantity: 30
+- id: truck-003
+  time: 120.0
+  quantity: 30

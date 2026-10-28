@@ -218,3 +218,9 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# rough/working documentation files
+docs/dev_materials/
+
+# Simulation run artifacts
+/runs/
