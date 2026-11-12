@@ -1,0 +1,9 @@
+# Reproduce the previous smooth individual-wait/local-backlog policy.
+feature_version: 3
+weights:
+  truck: 0.25
+  mill: 0.40
+  inventory: 0.15
+  cost: 0.20
+  bay_release: 0.0
+features: {}

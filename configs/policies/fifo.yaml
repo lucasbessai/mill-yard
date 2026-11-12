@@ -1,0 +1,6 @@
+# Fixed operator-style baseline; these rules are not optimized policy weights.
+low_fraction: 0.25
+target_fraction: 0.65
+max_refill_fraction: 0.75
+buffer_cycles: 2.0
+full_pile_fraction: 1.0

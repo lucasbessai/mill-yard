@@ -5,6 +5,15 @@ from math import hypot
 
 
 @dataclass(frozen=True)
+class ConfigurationSource:
+    """Input provenance only; the simulation never opens this source path."""
+
+    kind: str
+    path: str
+    sha256: str
+
+
+@dataclass(frozen=True)
 class Point:
     """A location in metres on a two-dimensional plane."""
 
@@ -23,3 +32,4 @@ class Arrival:
     time: float
     quantity: float
     id: str
+    area_id: str = "main"

@@ -4,20 +4,10 @@ from dataclasses import replace
 
 import pytest
 
+from mill_yard.model.scenario import InfeedSpec, LoaderSpec, PileSpec, StopSpec, YardScenario
+from mill_yard.model.state import Assignment, InventoryState, LoaderState, TruckState, YardState
 from mill_yard.model.types import Arrival, Point
-from mill_yard.model.yard import (
-    Assignment,
-    InfeedSpec,
-    InventoryState,
-    LoaderSpec,
-    LoaderState,
-    PileSpec,
-    StopSpec,
-    TruckState,
-    YardScenario,
-    YardState,
-)
-from mill_yard.policies.scored import ScoredParameters, ScoredPolicy
+from mill_yard.policies.scored import ScoredParameters, ScoredPolicy, predicted_starvation
 from mill_yard.simulation.engine import run_yard
 
 
@@ -42,10 +32,10 @@ def make_state(yard):
     return YardState(
         time=10,
         trucks={"t": TruckState("t", 0, 20, stop_id="s1")},
-        queue=[],
+        queues={"main": []},
         stops={"s1": "t", "s2": None},
         piles={"p": InventoryState(100)},
-        infeeds={"i": InventoryState(5)},
+        infeeds={"i": InventoryState(15)},
         loaders={x.id: LoaderState(x.id, x.location) for x in yard.loaders},
     )
 
@@ -54,7 +44,7 @@ def test_joint_choice_serves_truck_and_urgent_infeed(yard):
     state = make_state(yard)
     assignments = ScoredPolicy().choose(state, yard)
     assert {(a.loader_id, a.source_kind) for a in assignments} == {("l1", "pile"), ("l2", "truck")}
-    assert state.piles["p"].outgoing == 0
+    assert state.piles["p"].reserved_outgoing == 0
 
 
 def test_idle_or_topup_when_no_truck(yard):
@@ -73,15 +63,15 @@ def test_completed_incoming_delivery_reduces_immediate_risk(yard):
     state = make_state(yard)
     policy = ScoredPolicy()
     task = Assignment("l1", "pile", "p", "infeed", "i", 20)
-    before = policy._score(task, state, yard)
+    before = policy.score_joint([task], state, yard)
     loader = state.loaders["l2"]
     loader.assignment = Assignment("l2", "pile", "p", "infeed", "i", 20)
     loader.phase = "deposit"
-    loader.phase_end = 12
-    state.infeeds["i"].incoming = 20
-    assert policy._score(task, state, yard) < before
-    loader.phase_end = 100
-    assert policy._score(task, state, yard) == pytest.approx(before)
+    loader.phase_completes_at = 12
+    state.infeeds["i"].reserved_incoming = 20
+    assert policy.score_joint([task], state, yard) < before
+    loader.phase_completes_at = 100
+    assert policy.score_joint([task], state, yard) == pytest.approx(before)
 
 
 def test_parameters_are_validated_and_retained(yard):
@@ -99,10 +89,55 @@ def test_scored_policy_conserves_material_in_active_jobs(yard):
     result = run_yard(scenario, ScoredPolicy(), record="summary")
     state = result.state
     material = (
-        sum(truck.remaining for truck in state.trucks.values())
+        sum(truck.remaining_quantity for truck in state.trucks.values())
         + sum(pile.amount for pile in state.piles.values())
         + sum(infeed.amount for infeed in state.infeeds.values())
         + sum(loader.carried for loader in state.loaders.values())
         + sum(state.consumed.values())
     )
     assert material == pytest.approx(140)
+
+
+def test_loader_order_does_not_change_joint_choice(yard):
+    state = make_state(yard)
+    state.infeeds["i"].amount = 5
+    policy = ScoredPolicy()
+    forward = policy.choose(state, yard)
+    reverse = policy.choose(state, replace(yard, loaders=yard.loaders[::-1]))
+    assert set(forward) == set(reverse)
+    assert policy.score_joint(forward, state, yard) == pytest.approx(
+        policy.score_joint(forward[::-1], state, yard)
+    )
+
+
+def test_slower_loader_does_not_gain_shortage_credit(yard):
+    point = Point(0, 0)
+    scenario = replace(
+        yard,
+        horizon=8,
+        wake_interval=10,
+        piles=(PileSpec("p", point, 100, 100),),
+        infeeds=(InfeedSpec("i", Point(10, 0), 30, 5, 1, 2, 20),),
+        loaders=(
+            LoaderSpec("fast", point, 20, 1000, 100, 100),
+            LoaderSpec("slow", point, 20, 1, 100, 100),
+        ),
+    )
+    result = run_yard(scenario, ScoredPolicy(), record="events", validate=True)
+    decision = next(e for e in result.events if e["event"] == "decision")
+    assert decision["assignments"][0]["loader_id"] == "fast"
+    assert result.state.starvation["i"] == 0
+
+
+def test_delivery_timeline_counts_shortages_before_late_incoming_stock():
+    assert predicted_starvation(2, 1, [(5, 4)], 10) == 4
+
+
+def test_automatically_seeded_random_policy_records_reproducible_seed(yard):
+    from mill_yard.policies.random import RandomPolicy
+
+    scenario = replace(yard, arrivals=(Arrival(0, 20, "a"),))
+    first = run_yard(scenario, RandomPolicy())
+    second = run_yard(scenario, RandomPolicy(first.seed))
+    assert isinstance(first.seed, int)
+    assert first.events == second.events
