@@ -255,3 +255,45 @@ but uncommitted source contents are not archived.
 
 The examples are illustrative rather than calibrated. Stochastic supply and demand,
 species, the entrance scale, optimization, and a GUI remain future work.
+
+### Compare end-of-run objectives
+
+```bash
+uv run python scripts/compare_objectives.py configs/example.yaml
+uv run python scripts/compare_objectives.py configs/traffic/medium_2loader.yaml --shortfall-weight 3
+```
+
+This script runs threshold, scored, and random (seed 42 by default) on the same
+scenario and ranks their objective scores, lowest first. It also prints raw
+outcomes and unfinished truck counts. If your editable installation cannot find
+`mill_yard`, prefix the command with `PYTHONPATH="$PWD/src"` on macOS/Linux.
+
+`optimization/objective.py` defines tunable example references: 60 total truck
+waiting minutes, 10,000 metres of fleet travel, and 100 tonnes of production
+shortfall. The score is the weighted average of each outcome divided by its
+reference; weights default to equal importance. These are illustrative scales,
+not calibrated monetary costs. Scores can exceed one. CLI overrides include
+`--reference-wait`, `--reference-distance`, `--reference-shortfall`, `--wait-weight`,
+`--distance-weight`, and `--shortfall-weight`.
+
+Waiting includes unfinished trucks' wait so far. Travel includes partial journeys
+at the horizon. Shortfall is each infeed's constant consumption rate multiplied
+by its starvation minutes, summed across infeeds. No work beyond the horizon is
+estimated. Keep the references, preferences, scenario, and horizon fixed when
+comparing policies. A single random seed is an illustrative comparison, not a
+statistical evaluation. Objective preferences judge completed runs; they are
+separate from the scored policy's dispatch weights. No optimizer is run here.
+
+### Optimize dispatch weights
+
+```bash
+PYTHONPATH=src uv run python scripts/optimize_policy.py configs/traffic/medium_2loader.yaml --maxiter 50 --popsize 10 --seed 42 --output runs/optimization/medium.json
+```
+
+This searches the four `OptimizablePolicy` weights using SciPy differential
+evolution and the existing end-of-run objective. It reports the best theta and
+objective breakdown, compares against the initial theta, and optionally saves the
+scenario, settings, and search history as JSON. The result is the best policy
+found within the search budget; global optimality is not guaranteed.
+See [optimizer documentation](docs/optimizable_policy.md#search-with-differential-evolution)
+for the Python API, search controls, objective preferences, and fixed feature scales.
