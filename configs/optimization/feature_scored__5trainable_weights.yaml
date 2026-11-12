@@ -1,0 +1,2 @@
+trainable_weights: [truck, mill, inventory, cost, bay_release]
+fixed_weights: {}

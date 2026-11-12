@@ -1,0 +1,104 @@
+# Reusable yard definition. Units: minutes, metres, tonnes.
+kind: yard
+schema_version: 1
+unloading_areas:
+- id: north
+  queue_location:
+    x: 0
+    y: 410
+- id: south
+  queue_location:
+    x: 0
+    y: -410
+- id: east
+  queue_location:
+    x: 900
+    y: 0
+stops:
+- id: north-1
+  location:
+    x: -340
+    y: 350
+  max_loaders: 2
+  area_id: north
+- id: north-2
+  location:
+    x: 340
+    y: 350
+  max_loaders: 2
+  area_id: north
+- id: south-1
+  location:
+    x: -340
+    y: -350
+  max_loaders: 2
+  area_id: south
+- id: south-2
+  location:
+    x: 340
+    y: -350
+  max_loaders: 2
+  area_id: south
+- id: east-1
+  location:
+    x: 800
+    y: 180
+  max_loaders: 2
+  area_id: east
+- id: east-2
+  location:
+    x: 800
+    y: -180
+  max_loaders: 2
+  area_id: east
+piles:
+- id: p1
+  location:
+    x: -200
+    y: 140
+  capacity: 250
+  max_loaders: 4
+- id: p2
+  location:
+    x: 200
+    y: 140
+  capacity: 250
+  max_loaders: 4
+- id: p3
+  location:
+    x: -200
+    y: -140
+  capacity: 250
+  max_loaders: 4
+- id: p4
+  location:
+    x: 200
+    y: -140
+  capacity: 250
+  max_loaders: 4
+infeeds:
+- id: mill
+  location:
+    x: -800
+    y: 0
+  capacity: 120
+  consumption_rate: 1.25
+  low: 30
+  target: 78
+  max_loaders: 1
+loaders:
+- id: l1
+  capacity: 20
+  speed: 90
+  pickup_rate: 8
+  deposit_rate: 8
+- id: l2
+  capacity: 20
+  speed: 90
+  pickup_rate: 8
+  deposit_rate: 8
+- id: l3
+  capacity: 20
+  speed: 90
+  pickup_rate: 8
+  deposit_rate: 8

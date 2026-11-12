@@ -1,0 +1,8 @@
+# Compose reusable inputs; the truck schedule supplies the default horizon.
+kind: experiment
+schema_version: 1
+yard: ../../yards/1area_multi_mill__2bays_2piles_2mills_2loaders_mixed.yaml
+truck_schedule: ../../truck_schedules/1area_multi_mill__004trucks_burst_120min.yaml
+initial_conditions: ../../initial_conditions/1area_multi_mill__2bays_2piles_2mills_2loaders_mixed__mixed_stock.yaml
+wake_mode: interval
+wake_interval: 5

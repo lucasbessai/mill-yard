@@ -1,0 +1,14 @@
+# Illustrative five-feature weights; not optimized.
+feature_version: 4
+weights:
+  truck: 0.20
+  mill: 0.35
+  inventory: 0.10
+  cost: 0.15
+  bay_release: 0.20
+# All omitted feature settings use the version 3 Python defaults.
+features:
+  bay_time_reference: 30.0
+  bay_queue_reference: 5.0
+  truck_area_wait_share: 0.20
+  area_wait_reference: 30.0

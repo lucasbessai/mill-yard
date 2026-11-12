@@ -1,0 +1,17 @@
+# Reusable truck schedule definition. Units: minutes, metres, tonnes.
+kind: truck_schedule
+schema_version: 1
+horizon: 840
+arrivals:
+- time: 0
+  quantity: 35
+  id: truck-1
+  area_id: main
+- time: 25
+  quantity: 35
+  id: truck-2
+  area_id: main
+- time: 50
+  quantity: 35
+  id: truck-3
+  area_id: main

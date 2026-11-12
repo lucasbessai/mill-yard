@@ -1,0 +1,4 @@
+# R is absent from the optimizer's vector, not discovered by searching.
+trainable_weights: [truck, mill, inventory, cost]
+fixed_weights:
+  bay_release: 0.0

@@ -1,0 +1,9 @@
+# Reproduce feature version 2: clipped wait and aggregate bay-waiting count.
+feature_version: 2
+weights:
+  truck: 0.25
+  mill: 0.40
+  inventory: 0.15
+  cost: 0.20
+  bay_release: 0.0
+features: {}

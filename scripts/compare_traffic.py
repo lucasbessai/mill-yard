@@ -6,9 +6,12 @@ Run with: uv run python scripts/compare_traffic.py
 from pathlib import Path
 
 from mill_yard.config.loader import load_yard_scenario
-from mill_yard.policies.joint import RandomPolicy, ThresholdPolicy
+from mill_yard.evaluations.metrics import summary
+from mill_yard.policies.feature_scored import FeatureScoredPolicy
+from mill_yard.policies.fifo import FifoPolicy
+from mill_yard.policies.random import RandomPolicy
 from mill_yard.policies.scored import ScoredPolicy
-from mill_yard.records.persistence import summary
+from mill_yard.policies.threshold import ThresholdPolicy
 from mill_yard.simulation.engine import run_yard
 
 
@@ -16,12 +19,16 @@ def main() -> None:
     """Print cumulative waiting, starvation, incomplete trucks and travel."""
     print("scenario,policy,wait_minutes,starvation_minutes,unfinished,travel_metres")
     for path in sorted(
-        (Path(__file__).resolve().parent.parent / "configs" / "traffic").glob("*.yaml")
+        (Path(__file__).resolve().parent.parent / "configs" / "experiments" / "traffic").glob(
+            "*.yaml"
+        )
     ):
         scenario = load_yard_scenario(path)
         for name, policy in (
             ("threshold", ThresholdPolicy()),
+            ("fifo", FifoPolicy()),
             ("scored", ScoredPolicy()),
+            ("feature_scored", FeatureScoredPolicy()),
             ("random_seed_42", RandomPolicy(42)),
         ):
             result = run_yard(scenario, policy, record="summary")
