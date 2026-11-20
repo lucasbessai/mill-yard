@@ -20,6 +20,7 @@ dependencies = [
 
 [project.optional-dependencies]
 gui = ["arcade>=3.0"]
+optimization = ["OMADS>=2612.1"]
 
 [dependency-groups]
 dev = [

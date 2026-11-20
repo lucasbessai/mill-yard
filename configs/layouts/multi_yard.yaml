@@ -1,0 +1,14 @@
+# Optimize pile locations in the existing illustrative multi-asset scenario.
+# The minimum spacing applies to every pair of selected POIs, including the two
+# optimized piles. Coordinates are metres; vector order is [pile-1.x, pile-1.y,
+# pile-2.x, pile-2.y].
+scenario: ../multi_yard.yaml
+point_ids: [pile-1, pile-2]
+bounds:
+  x: [0, 200]
+  y: [0, 60]
+min_spacing: 5
+objective_weights:
+  starvation: 100
+  truck_waiting: 1
+  loader_travel: 0.1
