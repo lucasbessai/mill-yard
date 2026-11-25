@@ -17,6 +17,7 @@ dependencies = [
     "matplotlib>=3.8",
     "simpy>=4.1",
     "scipy>=1.15",
+    "omads==2610.0",
 ]
 
 [project.optional-dependencies]

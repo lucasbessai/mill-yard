@@ -67,36 +67,27 @@ With four normalized weights there are three independent degrees of freedom.
 The optimizer accounts for that constraint rather than interpreting scaled
 copies of a vector as different policies.
 
-## Search with differential evolution
+## Optimize dispatch weights
 
-Install the project dependencies (`uv sync`), then run:
+Install dependencies with `uv sync` and run from the repository root.
 
 ```bash
-PYTHONPATH=src uv run python scripts/optimize_policy.py configs/traffic/medium_2loader.yaml --maxiter 50 --popsize 10 --seed 42 --output runs/optimization/medium.json
+# OMADS poll, the default
+PYTHONPATH=src uv run python scripts/optimize_policy.py configs/traffic/medium_2loader.yaml --method omads
+
+# Differential evolution with its historical settings
+PYTHONPATH=src uv run python scripts/optimize_policy.py configs/traffic/medium_2loader.yaml --method de
+
+# Independent runs with the same scenario, seed, and simulation cap
+PYTHONPATH=src uv run python scripts/optimize_policy.py configs/traffic/medium_2loader.yaml --method both --output runs/optimization/medium.json --plot runs/optimization/medium.png
+
+# Full MADS with Latin hypercube search and poll
+PYTHONPATH=src uv run python scripts/optimize_policy.py configs/traffic/medium_2loader.yaml --method omads --full-mads
 ```
 
-The script prints the best normalized theta, initial and best objective totals,
-raw outcomes, simulation count, and the stopping reason. The JSON output also
-contains the complete resolved scenario, objective and feature parameters, seed,
-search settings, and best-so-far objective by generation. Generation zero records
-the best initial population member. Output paths are overwritten when reused.
-
-The Python entry point is:
-
-```python
-from mill_yard.optimization.optimizer import OptimizerParameters, optimize_policy
-
-search = optimize_policy(
-    scenario,
-    settings=OptimizerParameters(seed=42, maxiter=50, popsize=10),
-    features=features,
-)
-print(search.theta, search.score.total, search.message)
-# Replay using OptimizablePolicy(search.theta, search.features).
-```
-
-The implementation uses [SciPy differential evolution](https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.differential_evolution.html).
-Three bounded stick-breaking coordinates produce the four weights:
+Use `--initial-theta T M I C` to change the default baseline
+`(0.25, 0.40, 0.15, 0.20)`. Both solvers use three bounded stick-breaking
+coordinates in `[0, 1]` to cover the four-weight simplex, including its boundaries.
 
 ```text
 theta_T = a
@@ -105,33 +96,144 @@ theta_I = (1-a) (1-b) c
 theta_C = (1-a) (1-b) (1-c)
 ```
 
-This covers the simplex, including zero weights, without an equality constraint.
-The population has `max(5, 3*popsize)` members. It starts with the supplied initial
-theta, four pure-weight policies, and random weights sampled uniformly on the
-simplex. The default initial theta is the proposal's example (0.25, 0.4, 0.15, 0.2).
-Use `--initial-theta T M I C` to supply a different baseline. The returned policy
-is at least as good as that baseline on this scenario and objective, since every
-evaluated candidate remains eligible for the result.
+Objective settings include `--shortfall-weight 3` and `--reference-wait 120`.
+Fixed feature settings use a `--feature-` prefix, for example
+`--feature-stockout-reference 20`. Each candidate runs a fresh summary-mode
+simulation unless its exact policy weights already have a score in that run's cache.
 
-Each evaluation creates a fresh simulation in summary-recording mode. Exact
-repeated normalized theta vectors reuse cached scores within the search. All
-simulation errors propagate instead of being disguised as poor scores. Execution
-is serial and seeded. Gradient polishing is disabled because dispatch decisions
-create a discontinuous objective with flat regions.
+### Settings and stopping
 
-The DE budget is at most `(maxiter+1)*max(5,3*popsize)` function evaluations,
-plus initialization scoring and the baseline evaluation. Initialization scores
-are cached, so repeated evaluations normally avoid another simulation. Result
-`function_evaluations` is SciPy's count; `simulations` includes all actual runs,
-including initialization and baseline. `--maxiter 0` evaluates only the initial
-population. `--tol` and `--atol` control SciPy's population-energy convergence
-criterion. Reaching the generation limit still returns the best policy found;
-`converged` reports whether SciPy met its stopping criterion. Neither convergence
-nor a low objective proves global optimality. Try several seeds and larger budgets
-before drawing conclusions, and evaluate chosen weights on other scenarios.
+The tested dependency is [OMADS 2610](https://pypi.org/project/OMADS/2610/).
+Poll calls `OMADS.poll.main(data)` and full MADS calls `OMADS.mads.main(data)`.
+Both use the documented evaluator, parameter, and option sections. Full MADS
+adds `search={"s_method": "LH", "ns": 4}`. The evaluator returns
+`[objective, [0]]`, with a zero constraint residual for this bounded problem.
+The orthogonal mesh in this release needs `REAL` for continuous mesh projection.
+Scaling is `1.0`, so frame sizes are expressed in units of the coordinate range.
+See the [OMADS configuration reference](https://ahmed-bayoumy.github.io/OMADS/user_guide/configuration.html).
 
-All objective arguments from `compare_objectives.py` are available, for example
-`--shortfall-weight 3` or `--reference-wait 120`. Fixed feature settings use a
-`--feature-` prefix, such as `--feature-stockout-reference 20`. Keep these settings
-constant when comparing searches. Theta weights control dispatch decisions;
-objective weights express which simulation outcomes the search should favor.
+`OMADSParameters` defaults to a 200-evaluation allowance, a 0.2 initial frame
+size, and a 0.0001 mesh/frame tolerance. These allow initial moves at a meaningful
+fraction of the unit coordinate range and limit refinement of a locally flat
+objective. It uses `ORTHO_2N`, rich directions, opportunistic evaluation, and
+internal cache storage and lookup. Both solvers run serially with seed 42 by
+default. A shared seed makes each algorithm reproducible with the same inputs.
+OMADS and DE use different random search processes.
+
+DE retains its population size of `max(5, 3*popsize)`, with the initial policy,
+four pure-weight policies, and a seeded Dirichlet sample. Its defaults are
+`--maxiter 50 --popsize 10 --tol 0.01 --atol 0` with gradient polishing disabled.
+`--maxiter 0` scores the initial population only. SciPy evaluates its initial
+population directly, so there is no separate population pre-scoring pass.
+
+`--budget N` caps actual simulations per method, including the initial policy
+and any population initialization. In single mode, OMADS and both-method comparisons default to 200. DE alone
+uses its generation and convergence controls unless you supply a simulation cap.
+Both-mode uses independent caches. DE ends immediately before a cache miss
+would exceed the cap, including during initialization or partway through a
+generation. The best candidate from those already simulated remains eligible.
+Each solver can terminate early according to its own criteria. Invalid
+coordinates, nonfinite objective scores, and simulation errors abort with
+diagnostic context.
+
+### Results
+
+The CLI prints weights, initial and best objectives, percentage improvement,
+initial and final wait, travel and shortfall, runtime, counts, and termination.
+`--output` writes JSON schema 2 with the resolved scenario and settings. Single
+runs keep the original top-level result fields. Both-mode puts results under
+`omads` and `de`. `--plot` saves a step plot against cumulative actual
+simulations, with the initial policy as a horizontal baseline.
+
+`objective_calls` counts calls from the solver to the blackbox, including calls
+that hit the policy cache and any call that triggered the simulation cap. The
+separate baseline measurement counts toward `simulations`. `cache_hits` counts
+policy cache hits visible to the wrapper. `function_evaluations` copies the
+solver's counter when available. OMADS 2610 poll can undercount evaluations in
+its return dictionary, and SciPy supplies no final count when interrupted by
+the cap. Use `simulations` for comparison. `evaluation_history` records each
+simulated policy, its objective, and the best objective so far. DE also retains
+generation history in `history`. OMADS reports solver iterations separately.
+OMADS stopping details come from its termination log and measured budget usage.
+
+The returned policy is the best observed on the selected scenario, including
+the baseline. The discrete-event objective can be nonsmooth, discontinuous, or
+locally flat. The result and stopping criterion provide no global optimality
+guarantee.
+
+### Python API
+
+```python
+from mill_yard.optimization.optimizer import OMADSParameters, optimize_policy
+
+comparison = optimize_policy(
+    scenario,
+    method="both",
+    evaluation_budget=200,
+    omads_settings=OMADSParameters(full_mads=True),
+)
+print(comparison.omads.theta, comparison.omads.score.total)
+print(comparison.de.theta, comparison.de.score.total)
+```
+
+An individual method returns an `OptimizationResult` directly. Use
+`method="de"` when replaying legacy DE scripts and pass DE options through
+`settings=OptimizerParameters(...)`. The shared seed also comes from
+`OptimizerParameters.seed`.
+
+
+### Batch optimization
+
+Batch mode finds one policy across the selected scenarios. For each candidate,
+the optimizer runs each scenario from its original initial conditions with the
+same policy weights and the same feature and objective parameters. It minimizes
+the arithmetic mean of the existing scenario objectives, giving every scenario
+equal influence regardless of truck count or horizon.
+
+Run the following commands from the checkout. With no scenario paths,
+`--mode batch` loads all six YAML configurations in `configs/traffic`.
+
+```bash
+# Batch OMADS poll (the default algorithm)
+PYTHONPATH=src uv run python scripts/optimize_policy.py --mode batch
+
+# Batch DE
+PYTHONPATH=src uv run python scripts/optimize_policy.py --mode batch --method de
+
+# Compare the two solvers on the same batch
+PYTHONPATH=src uv run python scripts/optimize_policy.py --mode batch --method both --output runs/optimization/batch.json --plot runs/optimization/batch.png
+
+# Choose a subset and use full MADS
+PYTHONPATH=src uv run python scripts/optimize_policy.py --mode batch --full-mads configs/traffic/light_1loader.yaml configs/traffic/heavy_2loader.yaml
+```
+
+For a custom batch, list YAML paths with unique filename stems, or pass a nonempty
+mapping from IDs to `YardScenario` objects in Python. The default YAML files
+are available from a repository checkout. Installed-package callers without the
+checkout can pass a mapping explicitly.
+
+```python
+from mill_yard.config.loader import load_yard_scenario
+from mill_yard.optimization.optimizer import optimize_policy
+
+batch = {
+    "light": load_yard_scenario("configs/traffic/light_1loader.yaml"),
+    "heavy": load_yard_scenario("configs/traffic/heavy_2loader.yaml"),
+}
+result = optimize_policy(batch, mode="batch", method="omads")
+print(result.theta, result.score.total, result.scenario_scores)
+```
+
+In batch mode, `--budget` caps unique candidate-policy evaluations per solver and
+defaults to 200 for each method. The baseline uses one candidate evaluation.
+A candidate uses one simulation per scenario, so 200 candidates across six
+scenarios use 1,200 actual simulations. Cache hits reuse the complete candidate
+result within one solver run. Each solver can stop early under its own stopping
+criteria. The batch plot uses cumulative candidate-policy evaluations on the
+horizontal axis. The CLI and batch JSON report simulation counts separately.
+
+The terminal report shows the initial and best objective, wait, travel, and
+shortfall for each scenario and the batch mean. Batch JSON uses schema 3 and
+includes resolved scenario configurations, the per-scenario scores for the
+initial and best common policy, and the best-so-far mean-objective history.
+Single mode remains the default and its JSON retains schema 2.

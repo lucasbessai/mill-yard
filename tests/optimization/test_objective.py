@@ -18,9 +18,9 @@ def test_shortfall_matches_requested_minus_consumed():
     travel_only = evaluate_objective(
         result, ObjectiveParameters(wait_weight=0, distance_weight=1, shortfall_weight=0)
     )
-    assert travel_only.total == pytest.approx(score.travel_metres / 10_000)
+    assert travel_only.total == pytest.approx(score.travel_metres / 5_000)
     assert score.total == pytest.approx(
-        (score.truck_wait_minutes / 60 + score.travel_metres / 10_000 + 455 / 100) / 3
+        (score.truck_wait_minutes / 60 + score.travel_metres / 5_000 + 455 / 10) / 3
     )
 
 

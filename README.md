@@ -287,13 +287,24 @@ separate from the scored policy's dispatch weights. No optimizer is run here.
 ### Optimize dispatch weights
 
 ```bash
-PYTHONPATH=src uv run python scripts/optimize_policy.py configs/traffic/medium_2loader.yaml --maxiter 50 --popsize 10 --seed 42 --output runs/optimization/medium.json
+PYTHONPATH=src uv run python scripts/optimize_policy.py configs/traffic/medium_2loader.yaml --method both --output runs/optimization/medium.json --plot runs/optimization/medium.png
 ```
 
-This searches the four `OptimizablePolicy` weights using SciPy differential
-evolution and the existing end-of-run objective. It reports the best theta and
-objective breakdown, compares against the initial theta, and optionally saves the
-scenario, settings, and search history as JSON. The result is the best policy
-found within the search budget; global optimality is not guaranteed.
-See [optimizer documentation](docs/optimizable_policy.md#search-with-differential-evolution)
-for the Python API, search controls, objective preferences, and fixed feature scales.
+OMADS poll is the default. Use `--method de` to run differential evolution,
+`--method both` to compare the methods with a cap of 200 simulations each, or
+`--full-mads` to enable the Latin hypercube search phase in OMADS. The script
+reports the best weights found, objective and operational metrics before and
+after optimization, and evaluation counts. See the
+[optimizer documentation](docs/optimizable_policy.md#optimize-dispatch-weights)
+for the Python API, settings, and output format.
+
+
+To optimize one shared policy across all six traffic scenarios, run:
+
+```bash
+PYTHONPATH=src uv run python scripts/optimize_policy.py --mode batch --method both --output runs/optimization/batch.json --plot runs/optimization/batch.png
+```
+
+Batch mode minimizes the arithmetic mean of the scenario objectives. Its default
+cap of 200 candidate policies allows up to 1,200 simulations per method across
+the six traffic scenarios.

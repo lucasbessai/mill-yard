@@ -31,3 +31,14 @@ def load_yard_scenario(path: str | Path) -> YardScenario:
         return YardScenario(**data)
     except (KeyError, TypeError) as exc:
         raise ValueError(f"Invalid scenario: {exc}") from exc
+
+
+def default_traffic_paths() -> tuple[Path, ...]:
+    """Find the existing traffic configurations in the project checkout."""
+    directory = Path(__file__).resolve().parents[3] / "configs" / "traffic"
+    paths = tuple(sorted(directory.glob("*.yaml")))
+    if not paths:
+        raise ValueError(
+            "Default traffic configurations are unavailable; supply scenarios explicitly"
+        )
+    return paths
