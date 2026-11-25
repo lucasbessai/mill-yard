@@ -2,14 +2,14 @@
 
 import pytest
 
-from mill_yard.config.loader import load_yard_scenario
+from mill_yard.config.loader import DEFAULT_OBJECTIVE_PATH, load_yard_scenario
 from mill_yard.optimization.objective import ObjectiveParameters, evaluate_objective
 from mill_yard.policies.joint import ThresholdPolicy
 from mill_yard.simulation.engine import run_yard
 
 
 def test_shortfall_matches_requested_minus_consumed():
-    scenario = load_yard_scenario("configs/example.yaml")
+    scenario = load_yard_scenario(DEFAULT_OBJECTIVE_PATH)
     result = run_yard(scenario, ThresholdPolicy(), record="summary")
     score = evaluate_objective(result)
     requested = sum(x.consumption_rate * result.state.time for x in scenario.infeeds)

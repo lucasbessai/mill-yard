@@ -2,12 +2,13 @@
 
 from copy import deepcopy
 
-from mill_yard.model.yard import Assignment, YardScenario, YardState
+from mill_yard.model.scenario import YardLayout
+from mill_yard.model.state import Assignment, YardState
 
 EPS = 1e-9
 
 
-def candidates(state: YardState, scenario: YardScenario) -> list[Assignment]:
+def candidates(state: YardState, scenario: YardLayout) -> list[Assignment]:
     """Return maximal currently feasible quantities for each loader and route."""
     result = []
     for loader in scenario.loaders:
@@ -20,8 +21,8 @@ def candidates(state: YardState, scenario: YardScenario) -> list[Assignment]:
                 dest = state.piles[pile.id]
                 quantity = min(
                     loader.capacity,
-                    truck.remaining - truck.reserved,
-                    pile.capacity - dest.amount - dest.incoming,
+                    truck.remaining_quantity - truck.reserved_quantity,
+                    pile.capacity - dest.amount - dest.reserved_incoming,
                 )
                 if quantity > EPS:
                     result.append(
@@ -33,8 +34,8 @@ def candidates(state: YardState, scenario: YardScenario) -> list[Assignment]:
                 dest = state.infeeds[infeed.id]
                 quantity = min(
                     loader.capacity,
-                    source.amount - source.outgoing,
-                    infeed.capacity - dest.amount - dest.incoming,
+                    source.amount - source.reserved_outgoing,
+                    infeed.capacity - dest.amount - dest.reserved_incoming,
                 )
                 if quantity > EPS:
                     result.append(
@@ -43,7 +44,7 @@ def candidates(state: YardState, scenario: YardScenario) -> list[Assignment]:
     return result
 
 
-def reserve(state: YardState, scenario: YardScenario, assignment: Assignment) -> None:
+def reserve(state: YardState, scenario: YardLayout, assignment: Assignment) -> None:
     """Validate and reserve one job in a state, allowing a smaller quantity."""
     if not any(
         a.loader_id == assignment.loader_id
@@ -57,14 +58,14 @@ def reserve(state: YardState, scenario: YardScenario, assignment: Assignment) ->
         raise ValueError("Assignment is infeasible")
     state.loaders[assignment.loader_id].assignment = assignment
     if assignment.source_kind == "truck":
-        state.trucks[assignment.source_id].reserved += assignment.quantity
+        state.trucks[assignment.source_id].reserved_quantity += assignment.quantity
     else:
-        state.piles[assignment.source_id].outgoing += assignment.quantity
+        state.piles[assignment.source_id].reserved_outgoing += assignment.quantity
     destination = state.piles if assignment.destination_kind == "pile" else state.infeeds
-    destination[assignment.destination_id].incoming += assignment.quantity
+    destination[assignment.destination_id].reserved_incoming += assignment.quantity
 
 
-def validate_joint(state: YardState, scenario: YardScenario, assignments: list[Assignment]) -> None:
+def validate_joint(state: YardState, scenario: YardLayout, assignments: list[Assignment]) -> None:
     """Validate a complete proposal without changing the live state."""
     trial = deepcopy(state)
     for assignment in assignments:

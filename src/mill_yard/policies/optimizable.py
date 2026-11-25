@@ -11,8 +11,9 @@ from dataclasses import asdict, dataclass, fields
 from math import isfinite
 
 from mill_yard.model.feasibility import EPS, candidates, reserve
-from mill_yard.model.yard import Assignment, YardScenario, YardState
-from mill_yard.policies.scored import ScoredPolicy
+from mill_yard.model.scenario import YardLayout
+from mill_yard.model.state import Assignment, YardState
+from mill_yard.model.timing import job_duration
 
 
 @dataclass(frozen=True)
@@ -64,8 +65,6 @@ class OptimizablePolicy:
             raise ValueError("theta must have a finite positive sum")
         self.theta = tuple(v / total for v in values)
         self.features = features or FeatureParameters()
-        # Reuse the existing route-duration estimate without its scoring weights.
-        self._estimator = ScoredPolicy()
 
     def metadata(self) -> dict:
         """Retain normalized weights, their order, and fixed feature definitions."""
@@ -75,7 +74,7 @@ class OptimizablePolicy:
             "features": asdict(self.features),
         }
 
-    def _stockout(self, infeed_id: str, state: YardState, scenario: YardScenario) -> float:
+    def _stockout(self, infeed_id: str, state: YardState, scenario: YardLayout) -> float:
         spec = next(i for i in scenario.infeeds if i.id == infeed_id)
         if spec.consumption_rate == 0:
             return float("inf")
@@ -85,9 +84,9 @@ class OptimizablePolicy:
             a = loader.assignment
             if a is None or a.destination_kind != "infeed" or a.destination_id != infeed_id:
                 continue
-            completion = loader.phase_end if loader.phase == "deposit" else None
+            completion = loader.phase_completes_at if loader.phase == "deposit" else None
             if loader.phase == "idle":
-                completion = state.time + self._estimator._duration(a, state, scenario)[1]
+                completion = state.time + job_duration(a, state, scenario)[1]
             if completion is not None:
                 deliveries.append((max(0.0, completion - state.time), a.quantity))
         for delay, quantity in sorted(deliveries):
@@ -98,7 +97,7 @@ class OptimizablePolicy:
         return available / spec.consumption_rate
 
     def task_features(
-        self, a: Assignment, state: YardState, scenario: YardScenario
+        self, a: Assignment, state: YardState, scenario: YardLayout
     ) -> tuple[float, float, float, float]:
         """Return interpretable (truck, mill, inventory, cost) features.
 
@@ -107,13 +106,13 @@ class OptimizablePolicy:
         Inventory uses unreserved stock so sequential choices share the benefit.
         """
         p = self.features
-        travel, duration = self._estimator._duration(a, state, scenario)
+        travel, duration = job_duration(a, state, scenario)
         loader = next(x for x in scenario.loaders if x.id == a.loader_id)
         truck = mill = inventory = 0.0
         if a.source_kind == "truck":
-            elapsed = max(0.0, state.time - state.trucks[a.source_id].arrival)
+            elapsed = max(0.0, state.time - state.trucks[a.source_id].arrived_at)
             truck = 0.5 * min(1.0, elapsed / p.wait_reference) + 0.5 * min(
-                1.0, len(state.queue) / p.queue_reference
+                1.0, state.waiting_truck_count / p.queue_reference
             )
         if a.destination_kind == "infeed":
             stockout = self._stockout(a.destination_id, state, scenario)
@@ -128,11 +127,11 @@ class OptimizablePolicy:
         target = max(
             0.0,
             min(
-                spec.capacity - inv.incoming,
+                spec.capacity - inv.reserved_incoming,
                 (demand * p.pile_lead_time + p.pile_safety_stock) * spec.capacity / capacity,
             ),
         )
-        amount = inv.amount - inv.outgoing
+        amount = inv.amount - inv.reserved_outgoing
         change = a.quantity if a.destination_kind == "pile" else -a.quantity
         inventory = min(
             1.0, max(0.0, (abs(amount - target) - abs(amount + change - target)) / spec.capacity)
@@ -142,7 +141,7 @@ class OptimizablePolicy:
             cost += p.holding_cost * a.quantity * p.residence_time
         return truck, mill, inventory, min(1.0, cost / p.cost_reference)
 
-    def choose(self, state: YardState, scenario: YardScenario) -> list[Assignment]:
+    def choose(self, state: YardState, scenario: YardLayout) -> list[Assignment]:
         """Return a feasible sequential proposal without mutating the observation."""
         trial = deepcopy(state)
         chosen = []
@@ -153,7 +152,7 @@ class OptimizablePolicy:
                 truck, mill, inventory, cost = self.task_features(a, trial, scenario)
                 t, m, i, c = self.theta
                 score = t * truck + m * mill + i * inventory - c * cost
-                travel = self._estimator._duration(a, trial, scenario)[0]
+                travel = job_duration(a, trial, scenario)[0]
                 speed = next(x.speed for x in scenario.loaders if x.id == a.loader_id)
                 ranked.append((score, -travel * speed, -loader_order[a.loader_id], a))
             score, _, _, best = max(ranked, key=lambda row: row[:3])
@@ -163,6 +162,6 @@ class OptimizablePolicy:
             chosen.append(best)
         return chosen
 
-    def wake_levels(self, state: YardState, scenario: YardScenario) -> dict[str, float]:
+    def wake_levels(self, state: YardState, scenario: YardLayout) -> dict[str, float]:
         """Use existing low crossings; interval mode also reviews changing urgency."""
         return {spec.id: spec.low for spec in scenario.infeeds}

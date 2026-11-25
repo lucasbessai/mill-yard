@@ -16,7 +16,7 @@ from mill_yard.optimization.objective import evaluate_objective
 from mill_yard.policies.optimizable import FeatureParameters, OptimizablePolicy
 from mill_yard.simulation.engine import run_yard
 
-scenario = load_yard_scenario("configs/traffic/medium_2loader.yaml")
+scenario = load_yard_scenario("configs/experiments/traffic/1area_shared__015trucks_2loaders_180min.yaml")
 features = FeatureParameters()  # Keep these fixed across optimizer evaluations.
 policy = OptimizablePolicy([0.25, 0.40, 0.15, 0.20], features)
 result = run_yard(scenario, policy, record="summary")
@@ -73,16 +73,16 @@ Install dependencies with `uv sync` and run from the repository root.
 
 ```bash
 # OMADS poll, the default
-PYTHONPATH=src uv run python scripts/optimize_policy.py configs/traffic/medium_2loader.yaml --method omads
+PYTHONPATH=src uv run python scripts/optimize_policy.py configs/experiments/traffic/1area_shared__015trucks_2loaders_180min.yaml --method omads
 
 # Differential evolution with its historical settings
-PYTHONPATH=src uv run python scripts/optimize_policy.py configs/traffic/medium_2loader.yaml --method de
+PYTHONPATH=src uv run python scripts/optimize_policy.py configs/experiments/traffic/1area_shared__015trucks_2loaders_180min.yaml --method de
 
 # Independent runs with the same scenario, seed, and simulation cap
-PYTHONPATH=src uv run python scripts/optimize_policy.py configs/traffic/medium_2loader.yaml --method both --output runs/optimization/medium.json --plot runs/optimization/medium.png
+PYTHONPATH=src uv run python scripts/optimize_policy.py configs/experiments/traffic/1area_shared__015trucks_2loaders_180min.yaml --method both --output runs/optimization/medium.json --plot runs/optimization/medium.png
 
 # Full MADS with Latin hypercube search and poll
-PYTHONPATH=src uv run python scripts/optimize_policy.py configs/traffic/medium_2loader.yaml --method omads --full-mads
+PYTHONPATH=src uv run python scripts/optimize_policy.py configs/experiments/traffic/1area_shared__015trucks_2loaders_180min.yaml --method omads --full-mads
 ```
 
 Use `--initial-theta T M I C` to change the default baseline
@@ -191,7 +191,7 @@ the arithmetic mean of the existing scenario objectives, giving every scenario
 equal influence regardless of truck count or horizon.
 
 Run the following commands from the checkout. With no scenario paths,
-`--mode batch` loads all six YAML configurations in `configs/traffic`.
+`--mode batch` loads all six YAML experiment presets in `configs/experiments/traffic`.
 
 ```bash
 # Batch OMADS poll (the default algorithm)
@@ -204,7 +204,7 @@ PYTHONPATH=src uv run python scripts/optimize_policy.py --mode batch --method de
 PYTHONPATH=src uv run python scripts/optimize_policy.py --mode batch --method both --output runs/optimization/batch.json --plot runs/optimization/batch.png
 
 # Choose a subset and use full MADS
-PYTHONPATH=src uv run python scripts/optimize_policy.py --mode batch --full-mads configs/traffic/light_1loader.yaml configs/traffic/heavy_2loader.yaml
+PYTHONPATH=src uv run python scripts/optimize_policy.py --mode batch --full-mads configs/experiments/traffic/1area_shared__003trucks_1loader_180min.yaml configs/experiments/traffic/1area_shared__045trucks_2loaders_180min.yaml
 ```
 
 For a custom batch, list YAML paths with unique filename stems, or pass a nonempty
@@ -217,8 +217,8 @@ from mill_yard.config.loader import load_yard_scenario
 from mill_yard.optimization.optimizer import optimize_policy
 
 batch = {
-    "light": load_yard_scenario("configs/traffic/light_1loader.yaml"),
-    "heavy": load_yard_scenario("configs/traffic/heavy_2loader.yaml"),
+    "light": load_yard_scenario("configs/experiments/traffic/1area_shared__003trucks_1loader_180min.yaml"),
+    "heavy": load_yard_scenario("configs/experiments/traffic/1area_shared__045trucks_2loaders_180min.yaml"),
 }
 result = optimize_policy(batch, mode="batch", method="omads")
 print(result.theta, result.score.total, result.scenario_scores)
@@ -237,3 +237,17 @@ shortfall for each scenario and the batch mean. Batch JSON uses schema 3 and
 includes resolved scenario configurations, the per-scenario scores for the
 initial and best common policy, and the best-so-far mean-objective history.
 Single mode remains the default and its JSON retains schema 2.
+
+### Dispatch policy studies
+
+Generate the operating comparison and weight sensitivity plots from a saved OMADS
+batch covering all six built-in traffic presets. The study accepts output from
+`--method omads` or `--method both`.
+
+```bash
+PYTHONPATH=src uv run python scripts/study_dispatch_policy.py --source runs/optimization/batch.json --output runs/analysis/decision_policy_sensitivity
+```
+
+The study checks the resolved scenarios and replays the saved policy before
+producing the CSVs, plots, and summary. Regenerate batch results produced before
+the simulation extension to study the policy under the updated simulation.

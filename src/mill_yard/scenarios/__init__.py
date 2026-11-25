@@ -1,1 +1,1 @@
-"""Scenario inputs for mill-yard simulation."""
+"""Reserved for scenario builders and samplers; input schemas live in model.scenario."""

@@ -11,7 +11,7 @@ from statistics import fmean
 import matplotlib
 import numpy as np
 
-from mill_yard.config.loader import default_traffic_paths, load_yard_scenario
+from mill_yard.config.loader import default_traffic_paths, load_yard_scenario, traffic_scenario_id
 from mill_yard.optimization.objective import ObjectiveParameters, ObjectiveScore, evaluate_objective
 from mill_yard.policies.optimizable import FeatureParameters, OptimizablePolicy
 from mill_yard.simulation.engine import run_yard
@@ -78,21 +78,36 @@ def write_csv(path, rows):
         writer.writerows(rows)
 
 
+def scenario_for_comparison(data):
+    """Compare resolved inputs and source hashes across checkout locations."""
+    return {
+        **data,
+        "configuration_sources": [
+            {key: value for key, value in source.items() if key != "path"}
+            for source in data.get("configuration_sources", [])
+        ],
+    }
+
+
 def run_studies(source):
     payload = json.loads(source.read_text(encoding="utf-8"))
-    saved = payload["omads"]
-    if saved["mode"] != "batch" or not saved["algorithm"].startswith("OMADS"):
+    saved = payload.get("omads", payload)
+    if saved["mode"] != "batch" or not saved.get("algorithm", "").startswith("OMADS"):
         raise ValueError("Expected a saved OMADS batch result")
     configs = {entry["id"]: entry["scenario"] for entry in payload["scenarios"]}
     if set(configs) != set(SCENARIO_IDS) or len(payload["scenarios"]) != len(SCENARIO_IDS):
         raise ValueError("Saved result must contain each of the six traffic scenarios once")
-    paths = {path.stem: path for path in default_traffic_paths()}
+    paths = {traffic_scenario_id(path): path for path in default_traffic_paths()}
     scenarios = {name: load_yard_scenario(paths[name]) for name in SCENARIO_IDS}
 
     def check_scenarios():
         for name, scenario in scenarios.items():
-            if json.loads(json.dumps(asdict(scenario))) != configs[name]:
-                raise ValueError(f"Scenario {name} differs from the saved configuration")
+            current = json.loads(json.dumps(asdict(scenario)))
+            if scenario_for_comparison(current) != scenario_for_comparison(configs[name]):
+                raise ValueError(
+                    f"Scenario {name} differs from the saved configuration. "
+                    "Generate a new batch result with the current simulation and presets."
+                )
 
     check_scenarios()
     features = FeatureParameters(**saved["features"])

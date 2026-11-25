@@ -1,0 +1,75 @@
+# Reusable yard definition. Units: minutes, metres, tonnes.
+kind: yard
+schema_version: 1
+unloading_areas:
+- id: north
+  queue_location:
+    x: -20
+    y: 10
+- id: south
+  queue_location:
+    x: 130
+    y: 0
+- id: east
+  queue_location:
+    x: 60
+    y: 100
+stops:
+- id: north-1
+  location:
+    x: 0
+    y: 0
+  max_loaders: 2
+  area_id: north
+- id: north-2
+  location:
+    x: 0
+    y: 20
+  max_loaders: 2
+  area_id: north
+- id: south-1
+  location:
+    x: 100
+    y: 0
+  max_loaders: 2
+  area_id: south
+- id: east-1
+  location:
+    x: 60
+    y: 80
+  max_loaders: 2
+  area_id: east
+piles:
+- id: north-pile
+  location:
+    x: 15
+    y: 0
+  capacity: 80
+  max_loaders: 4
+- id: south-pile
+  location:
+    x: 115
+    y: 0
+  capacity: 80
+  max_loaders: 4
+infeeds:
+- id: mill
+  location:
+    x: 60
+    y: 40
+  capacity: 60
+  consumption_rate: 1
+  low: 15
+  target: 40
+  max_loaders: 1
+loaders:
+- id: l1
+  capacity: 15
+  speed: 40
+  pickup_rate: 5
+  deposit_rate: 5
+- id: l2
+  capacity: 15
+  speed: 40
+  pickup_rate: 5
+  deposit_rate: 5

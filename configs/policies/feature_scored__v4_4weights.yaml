@@ -1,0 +1,32 @@
+# Queue-aware definitions; R defaults to zero for a four-weight comparison.
+# These weights are illustrative, not optimized.
+feature_version: 4
+weights:
+  truck: 0.25
+  mill: 0.40
+  inventory: 0.15
+  cost: 0.20
+  bay_release: 0.0
+
+# Fixed feature-definition assumptions, not additional optimization weights.
+# Material units are tonnes, times minutes, distance metres, costs currency units.
+features:
+  wait_reference: 30.0
+  queue_reference: 5.0
+  mill_time_reference: 30.0
+  inventory_reference: 20.0
+  cost_reference: 30.0
+  truck_wait_share: 0.75
+  mill_stockout_share: 0.75
+  pile_lead_time: 30.0
+  yard_safety_stock: 20.0
+  residence_time: 60.0
+  distance_cost: 0.01
+  active_time_cost: 1.0
+  holding_cost: 0.001
+  bay_time_reference: 30.0
+  bay_queue_reference: 5.0
+  # Area share is applied first. The remaining 80% uses truck_wait_share (75/25).
+  # Effective truck shares: 60% individual wait, 20% backlog, 20% area max wait.
+  truck_area_wait_share: 0.20
+  area_wait_reference: 30.0

@@ -5,7 +5,7 @@ import json
 from dataclasses import asdict
 from pathlib import Path
 
-from mill_yard.config.loader import default_traffic_paths, load_yard_scenario
+from mill_yard.config.loader import default_traffic_paths, load_yard_scenario, traffic_scenario_id
 from mill_yard.optimization.objective import ObjectiveParameters
 from mill_yard.optimization.optimizer import (
     OMADSParameters,
@@ -212,10 +212,13 @@ def main() -> None:
         )
         paths = args.scenarios or default_traffic_paths()
         if args.mode == "batch":
-            identifiers = [path.stem for path in paths]
+            identifiers = [traffic_scenario_id(path) for path in paths]
             if len(set(identifiers)) != len(identifiers):
-                parser.error("Batch scenario filenames must have unique stems")
-            scenario = {path.stem: load_yard_scenario(path) for path in paths}
+                parser.error("Batch scenario filenames must have unique stems and scenario IDs")
+            scenario = {
+                name: load_yard_scenario(path)
+                for name, path in zip(identifiers, paths, strict=True)
+            }
         else:
             scenario = load_yard_scenario(paths[0])
         result = optimize_policy(
@@ -252,11 +255,11 @@ def main() -> None:
             payload["schema_version"] = 3
             payload["scenarios"] = [
                 {
-                    "id": path.stem,
+                    "id": name,
                     "path": str(path.resolve()),
-                    "scenario": asdict(scenario[path.stem]),
+                    "scenario": asdict(scenario[name]),
                 }
-                for path in paths
+                for name, path in zip(identifiers, paths, strict=True)
             ]
         else:
             payload["schema_version"] = 2

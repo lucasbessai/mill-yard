@@ -18,7 +18,7 @@ from typing import Literal
 import numpy as np
 from scipy.optimize import differential_evolution
 
-from mill_yard.config.loader import default_traffic_paths, load_yard_scenario
+from mill_yard.config.loader import default_traffic_paths, load_yard_scenario, traffic_scenario_id
 from mill_yard.model.yard import YardScenario
 from mill_yard.optimization.objective import ObjectiveParameters, ObjectiveScore, evaluate_objective
 from mill_yard.policies.optimizable import FeatureParameters, OptimizablePolicy
@@ -437,7 +437,10 @@ def optimize_policy(
         scenarios = (("scenario", scenario),)
     elif mode == "batch":
         if scenario is None:
-            scenario = {path.stem: load_yard_scenario(path) for path in default_traffic_paths()}
+            scenario = {
+                traffic_scenario_id(path): load_yard_scenario(path)
+                for path in default_traffic_paths()
+            }
         if not isinstance(scenario, Mapping) or not scenario:
             raise ValueError(
                 "Batch mode requires a nonempty mapping of IDs to YardScenario objects"

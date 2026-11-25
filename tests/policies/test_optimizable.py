@@ -4,7 +4,7 @@ from copy import deepcopy
 
 import pytest
 
-from mill_yard.config.loader import load_yard_scenario
+from mill_yard.config.loader import DEFAULT_OBJECTIVE_PATH, load_yard_scenario
 from mill_yard.model.feasibility import candidates, validate_joint
 from mill_yard.model.yard import InventoryState, LoaderState, TruckState, YardState
 from mill_yard.optimization.objective import evaluate_objective
@@ -14,11 +14,13 @@ from mill_yard.simulation.engine import run_yard
 
 @pytest.fixture
 def observation():
-    scenario = load_yard_scenario("configs/traffic/medium_2loader.yaml")
+    scenario = load_yard_scenario(
+        "configs/experiments/traffic/1area_shared__015trucks_2loaders_180min.yaml"
+    )
     state = YardState(
         time=30,
         trucks={"t": TruckState("t", 0, 100, stop_id=scenario.stops[0].id)},
-        queue=[],
+        queues={area.id: [] for area in scenario.unloading_areas},
         stops={s.id: "t" if s == scenario.stops[0] else None for s in scenario.stops},
         piles={p.id: InventoryState(p.capacity / 2) for p in scenario.piles},
         infeeds={i.id: InventoryState(0) for i in scenario.infeeds},
@@ -60,16 +62,16 @@ def test_committed_delivery_only_helps_before_first_stockout(observation):
     loader = state.loaders[a.loader_id]
     loader.assignment = a
     loader.phase = "deposit"
-    loader.phase_end = state.time + 5
+    loader.phase_completes_at = state.time + 5
     assert policy._stockout(spec.id, state, scenario) == pytest.approx(
         10 + a.quantity / spec.consumption_rate
     )
-    loader.phase_end = state.time + 11
+    loader.phase_completes_at = state.time + 11
     assert policy._stockout(spec.id, state, scenario) == pytest.approx(10)
 
 
 def test_simulation_objective_and_metadata():
-    scenario = load_yard_scenario("configs/example.yaml")
+    scenario = load_yard_scenario(DEFAULT_OBJECTIVE_PATH)
     policy = OptimizablePolicy([2, 4, 1, 1])
     result = run_yard(scenario, policy, record="summary")
     assert result.policy == "OptimizablePolicy"

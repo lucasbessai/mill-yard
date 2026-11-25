@@ -7,16 +7,16 @@ Keep them fixed when comparing policies on the same scenario and horizon.
 from dataclasses import dataclass
 from math import isfinite
 
-from mill_yard.records.persistence import summary
-from mill_yard.simulation.engine import YardResult
+from mill_yard.evaluations.metrics import summary
+from mill_yard.simulation.result import YardResult
 
 
 @dataclass(frozen=True)
 class ObjectiveParameters:
     """Reference totals in truck-minutes, metres, and tonnes; relative preferences.
 
-    The default references represent 60 total truck waiting minutes, 10 km of
-    fleet travel, and 100 tonnes of unmet demand. Equal default preferences give
+    The default references represent 60 total truck waiting minutes, 5 km of
+    fleet travel, and 10 tonnes of unmet demand. Equal default preferences give
     equal importance to one reference unit of each outcome. Scores can exceed 1.
     """
 
@@ -69,8 +69,7 @@ def evaluate_objective(
     wait = metrics["completed_truck_wait_total"] + metrics["unfinished_truck_wait_so_far"]
     distance = metrics["loader_travel_distance_total"]
     shortfall = sum(
-        spec.consumption_rate * metrics["starvation"][spec.id]
-        for spec in result.scenario.infeeds
+        spec.consumption_rate * metrics["starvation"][spec.id] for spec in result.scenario.infeeds
     )
     weight_total = p.wait_weight + p.distance_weight + p.shortfall_weight
     return ObjectiveScore(
@@ -79,5 +78,7 @@ def evaluate_objective(
         shortfall_tonnes=shortfall,
         wait_contribution=(p.wait_weight / weight_total) * wait / p.reference_wait,
         distance_contribution=(p.distance_weight / weight_total) * distance / p.reference_distance,
-        shortfall_contribution=(p.shortfall_weight / weight_total) * shortfall / p.reference_shortfall,
+        shortfall_contribution=(p.shortfall_weight / weight_total)
+        * shortfall
+        / p.reference_shortfall,
     )

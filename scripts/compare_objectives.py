@@ -3,7 +3,7 @@
 import argparse
 from dataclasses import asdict
 
-from mill_yard.config.loader import load_yard_scenario
+from mill_yard.config.loader import DEFAULT_OBJECTIVE_PATH, load_yard_scenario
 from mill_yard.optimization.objective import ObjectiveParameters, evaluate_objective
 from mill_yard.policies.joint import RandomPolicy, ThresholdPolicy
 from mill_yard.policies.scored import ScoredPolicy
@@ -12,7 +12,7 @@ from mill_yard.simulation.engine import run_yard
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("scenario", nargs="?", default="configs/example.yaml")
+    parser.add_argument("scenario", nargs="?", default=DEFAULT_OBJECTIVE_PATH)
     parser.add_argument("--seed", type=int, default=42)
     for name, default in asdict(ObjectiveParameters()).items():
         parser.add_argument("--" + name.replace("_", "-"), type=float, default=default)

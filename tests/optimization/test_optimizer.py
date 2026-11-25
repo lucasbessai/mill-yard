@@ -10,7 +10,7 @@ from math import isfinite
 import numpy as np
 import pytest
 
-from mill_yard.config.loader import load_yard_scenario
+from mill_yard.config.loader import DEFAULT_OBJECTIVE_PATH, load_yard_scenario
 from mill_yard.optimization import optimizer
 from mill_yard.optimization.objective import ObjectiveParameters, evaluate_objective
 from mill_yard.optimization.optimizer import (
@@ -49,7 +49,7 @@ def test_invalid_search_settings(kwargs):
 
 
 def test_search_improves_bad_baseline_and_replays_with_fixed_settings():
-    scenario = load_yard_scenario("configs/example.yaml")
+    scenario = load_yard_scenario(DEFAULT_OBJECTIVE_PATH)
     settings = OptimizerParameters(maxiter=2, popsize=3, seed=17)
     features = FeatureParameters(stockout_reference=20)
     objective = ObjectiveParameters(shortfall_weight=3)
@@ -76,7 +76,7 @@ def test_search_improves_bad_baseline_and_replays_with_fixed_settings():
 
 
 def test_zero_generations_returns_best_initial_population_and_termination_reason():
-    scenario = load_yard_scenario("configs/example.yaml")
+    scenario = load_yard_scenario(DEFAULT_OBJECTIVE_PATH)
     result = optimize_policy(
         scenario, method="de", settings=OptimizerParameters(maxiter=0, popsize=1)
     )
@@ -88,7 +88,7 @@ def test_zero_generations_returns_best_initial_population_and_termination_reason
 
 
 def test_population_can_converge_when_all_policies_have_same_outcomes():
-    scenario = load_yard_scenario("configs/example.yaml")
+    scenario = load_yard_scenario(DEFAULT_OBJECTIVE_PATH)
     scenario = replace(
         scenario,
         arrivals=(),
@@ -108,7 +108,7 @@ def test_population_can_converge_when_all_policies_have_same_outcomes():
 
 @pytest.mark.parametrize("full_mads", [False, True])
 def test_omads_reproducible_and_returns_simulated_weights(full_mads):
-    scenario = load_yard_scenario("configs/example.yaml")
+    scenario = load_yard_scenario(DEFAULT_OBJECTIVE_PATH)
     settings = OMADSParameters(budget=14, full_mads=full_mads)
     result = optimize_policy(scenario, omads_settings=settings)
     assert result == optimize_policy(scenario, omads_settings=settings)
@@ -133,7 +133,7 @@ def test_omads_reproducible_and_returns_simulated_weights(full_mads):
 
 @pytest.mark.parametrize("budget", [1, 9, 34])
 def test_both_mode_caps_and_accounts_for_each_run(monkeypatch, budget):
-    scenario = load_yard_scenario("configs/example.yaml")
+    scenario = load_yard_scenario(DEFAULT_OBJECTIVE_PATH)
     original = deepcopy(scenario)
     evaluated = []
 
@@ -171,7 +171,7 @@ def test_both_mode_caps_and_accounts_for_each_run(monkeypatch, budget):
 
 
 def test_comparison_can_stop_at_mesh_and_population_tolerances():
-    scenario = load_yard_scenario("configs/example.yaml")
+    scenario = load_yard_scenario(DEFAULT_OBJECTIVE_PATH)
     result = optimize_policy(
         scenario,
         method="both",
@@ -185,7 +185,7 @@ def test_comparison_can_stop_at_mesh_and_population_tolerances():
 
 
 def test_simulation_failure_propagates_with_candidate_context(monkeypatch):
-    scenario = load_yard_scenario("configs/example.yaml")
+    scenario = load_yard_scenario(DEFAULT_OBJECTIVE_PATH)
     calls = 0
 
     def failing_simulation(scenario, policy, *, record):
@@ -209,7 +209,7 @@ def test_cli_writes_comparison_and_plot_when_de_stops_early(monkeypatch, tmp_pat
         "argv",
         [
             "scripts/optimize_policy.py",
-            "configs/example.yaml",
+            str(DEFAULT_OBJECTIVE_PATH),
             "--method",
             "both",
             "--budget",
@@ -238,7 +238,7 @@ def test_cli_writes_comparison_and_plot_when_de_stops_early(monkeypatch, tmp_pat
 
 
 def test_batch_solvers_share_one_policy_per_candidate_and_keep_independent_counts(monkeypatch):
-    example = load_yard_scenario("configs/example.yaml")
+    example = load_yard_scenario(DEFAULT_OBJECTIVE_PATH)
     batch = {
         "short": replace(example, horizon=25),
         "longer": replace(example, horizon=35),
