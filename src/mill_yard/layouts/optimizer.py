@@ -8,10 +8,23 @@ from mill_yard.layouts.objective import LayoutEvaluation, evaluate_layout
 
 
 @dataclass(frozen=True)
+class LayoutTrajectoryPoint:
+    """An incumbent layout snapshot, suitable for plotting or animation."""
+
+    evaluation_number: int
+    vector: tuple[float, ...]
+    objective: float
+    violations: tuple[float, ...]
+
+
+@dataclass(frozen=True)
 class LayoutSearchResult:
+    """Best layout and incumbent history from a search run."""
+
     vector: tuple[float, ...]
     evaluation: LayoutEvaluation
     evaluations: int
+    trajectory: tuple[LayoutTrajectoryPoint, ...]
 
 
 def optimize_layout(
@@ -39,6 +52,7 @@ def optimize_layout(
     vector = tuple(map(float, initial))
     best = evaluate_layout(config, vector)
     evaluations = 1
+    trajectory = [_trajectory_point(evaluations, vector, best)]
     steps = [((config.x_bounds[1] - config.x_bounds[0]) / 4
               if i % 2 == 0 else (config.y_bounds[1] - config.y_bounds[0]) / 4)
              for i in range(len(vector))]
@@ -54,12 +68,22 @@ def optimize_layout(
                 evaluations += 1
                 if _rank(candidate_eval) < _rank(best):
                     vector, best, improved = tuple(candidate), candidate_eval, True
+                    trajectory.append(_trajectory_point(evaluations, vector, best))
             if evaluations >= budget:
                 break
         if not improved:
             steps = [step / 2 for step in steps]
-    return LayoutSearchResult(vector, best, evaluations)
+    return LayoutSearchResult(vector, best, evaluations, tuple(trajectory))
 
 
 def _rank(evaluation: LayoutEvaluation):
     return (sum(evaluation.violations), evaluation.objective)
+
+
+def _trajectory_point(evaluation_number: int, vector: tuple[float, ...], evaluation: LayoutEvaluation):
+    return LayoutTrajectoryPoint(
+        evaluation_number=evaluation_number,
+        vector=vector,
+        objective=evaluation.objective,
+        violations=evaluation.violations,
+    )

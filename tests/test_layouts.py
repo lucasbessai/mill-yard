@@ -57,6 +57,38 @@ def test_optimizer_respects_evaluation_budget_and_returns_vector(layout_config):
     assert result.evaluations == 1
     assert len(result.vector) == 2 * len(layout_config.point_ids)
     assert len(result.evaluation.violations) == 9
+    assert len(result.trajectory) == 1
+    assert result.trajectory[0].evaluation_number == 1
+    assert result.trajectory[0].vector == result.vector
+
+
+def test_optimizer_trajectory_records_accepted_incumbents(layout_config, monkeypatch):
+    from mill_yard.layouts import optimizer
+    from mill_yard.layouts.objective import LayoutEvaluation
+
+    target = (50.0, 0.0, 0.0, 0.0)
+
+    def fake_evaluate(_config, vector):
+        return LayoutEvaluation(
+            sum((value - goal) ** 2 for value, goal in zip(vector, target, strict=True)),
+            (0.0,),
+            {},
+        )
+
+    monkeypatch.setattr(optimizer, "evaluate_layout", fake_evaluate)
+    result = optimizer.optimize_layout(
+        layout_config, budget=3, seed=4, initial=(0.0, 0.0, 0.0, 0.0)
+    )
+
+    assert len(result.trajectory) > 1
+    assert result.trajectory[0].evaluation_number == 1
+    assert result.trajectory[-1].evaluation_number <= result.evaluations
+    assert result.trajectory[-1].vector == result.vector
+    assert result.trajectory[-1].objective == result.evaluation.objective
+    assert all(
+        current.objective < previous.objective
+        for previous, current in zip(result.trajectory, result.trajectory[1:], strict=False)
+    )
 
 
 def test_vector_length_must_match_selected_pois(layout_config):
