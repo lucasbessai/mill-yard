@@ -289,3 +289,29 @@ def select_scenario_files(
 def load_yard_scenario(path: str | Path, **overrides) -> YardScenario:
     """Load a preset or legacy scenario into the unchanged resolved engine API."""
     return select_scenario_files(path, **overrides).load()
+
+
+_CONFIGS = Path(__file__).resolve().parents[3] / "configs"
+DEFAULT_OBJECTIVE_PATH = _CONFIGS / "archive" / "legacy_single_bay_14h" / "experiment.yaml"
+_TRAFFIC_EXPERIMENTS = {
+    _CONFIGS
+    / "experiments"
+    / "traffic"
+    / f"1area_shared__{trucks:03d}trucks_{loaders}loader{'s' if loaders == 2 else ''}_180min.yaml": f"{traffic}_{loaders}loader"
+    for traffic, trucks in (("heavy", 45), ("light", 3), ("medium", 15))
+    for loaders in (1, 2)
+}
+
+
+def default_traffic_paths() -> tuple[Path, ...]:
+    """Return the six traffic experiments in stable study ID order."""
+    if not all(path.is_file() for path in _TRAFFIC_EXPERIMENTS):
+        raise ValueError(
+            "Default traffic configurations are unavailable; supply scenarios explicitly"
+        )
+    return tuple(_TRAFFIC_EXPERIMENTS)
+
+
+def traffic_scenario_id(path: Path) -> str:
+    """Preserve study identifiers for built-in traffic presets."""
+    return _TRAFFIC_EXPERIMENTS.get(path.resolve(), path.stem)

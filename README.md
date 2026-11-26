@@ -2,7 +2,7 @@
 
 A Python discrete-event simulation and decision-support toolkit for forestry mill-yard
 operations. The current model compares dispatch policies under deterministic truck
-arrivals and fixed mill demand. Stochastic inputs and optimization are planned.
+arrivals and fixed mill demand. The repository includes dispatch weight optimization.
 
 ## Setup
 
@@ -323,7 +323,7 @@ mill-yard/
 │   ├── policies/              Threshold, queue heuristics, random, scored, and human dispatch
 │   ├── records/               Event recording, summaries, persistence
 │   ├── evaluations/          Pure metrics, including unfinished work
-│   ├── optimization/          Trainable/fixed weight spaces; search methods planned
+│   ├── optimization/          Dispatch weight search and trainable/fixed weight spaces
 │   └── gui/                   Tkinter/Arcade frontends, shared session, map controls
 ├── tests/                     Simulation and policy behavior tests
 ├── pyproject.toml             Package, dependencies, and tool settings
@@ -519,6 +519,59 @@ queues and policy memory improve inspection but do not serialize all SimPy runti
 machinery. Uncommitted source contents are not archived.
 
 The examples are illustrative rather than calibrated. Stochastic supply and demand,
-species, the entrance scale, optimization, and backward replay remain future work.
+species, the entrance scale, and backward replay remain future work.
 See [the model contract and limits](docs/model_assumptions.md) for the current
 physical assumptions, decision semantics, and checkpoint limitations.
+
+### Compare end-of-run objectives
+
+```bash
+uv run python scripts/compare_objectives.py configs/archive/legacy_single_bay_14h/experiment.yaml
+uv run python scripts/compare_objectives.py configs/experiments/traffic/1area_shared__015trucks_2loaders_180min.yaml --shortfall-weight 3
+```
+
+This script runs threshold, scored, and random (seed 42 by default) on the same
+scenario and ranks their objective scores, lowest first. It also prints raw
+outcomes and unfinished truck counts. If your editable installation cannot find
+`mill_yard`, prefix the command with `PYTHONPATH="$PWD/src"` on macOS/Linux.
+
+`optimization/objective.py` defines tunable example references: 60 total truck
+waiting minutes, 5,000 metres of fleet travel, and 10 tonnes of production
+shortfall. The score is the weighted average of each outcome divided by its
+reference; weights default to equal importance. These are illustrative scales,
+not calibrated monetary costs. Scores can exceed one. CLI overrides include
+`--reference-wait`, `--reference-distance`, `--reference-shortfall`, `--wait-weight`,
+`--distance-weight`, and `--shortfall-weight`.
+
+Waiting includes unfinished trucks' wait so far. Travel includes partial journeys
+at the horizon. Shortfall is each infeed's constant consumption rate multiplied
+by its starvation minutes, summed across infeeds. No work beyond the horizon is
+estimated. Keep the references, preferences, scenario, and horizon fixed when
+comparing policies. A single random seed is an illustrative comparison, not a
+statistical evaluation. Objective preferences judge completed runs; they are
+separate from the scored policy's dispatch weights. No optimizer is run here.
+
+### Optimize dispatch weights
+
+```bash
+PYTHONPATH=src uv run python scripts/optimize_policy.py configs/experiments/traffic/1area_shared__015trucks_2loaders_180min.yaml --method both --output runs/optimization/medium.json --plot runs/optimization/medium.png
+```
+
+OMADS poll is the default. Use `--method de` to run differential evolution,
+`--method both` to compare the methods with a cap of 200 simulations each, or
+`--full-mads` to enable the Latin hypercube search phase in OMADS. The script
+reports the best weights found, objective and operational metrics before and
+after optimization, and evaluation counts. See the
+[optimizer documentation](docs/optimizable_policy.md#optimize-dispatch-weights)
+for the Python API, settings, and output format.
+
+
+To optimize one shared policy across all six traffic scenarios, run:
+
+```bash
+PYTHONPATH=src uv run python scripts/optimize_policy.py --mode batch --method both --output runs/optimization/batch.json --plot runs/optimization/batch.png
+```
+
+Batch mode minimizes the arithmetic mean of the scenario objectives. Its default
+cap of 200 candidate policies allows up to 1,200 simulations per method across
+the six traffic scenarios.
