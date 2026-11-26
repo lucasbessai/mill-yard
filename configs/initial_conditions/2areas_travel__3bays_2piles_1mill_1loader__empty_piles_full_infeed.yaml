@@ -1,0 +1,16 @@
+# Reusable initial conditions definition. Units: minutes, metres, tonnes.
+kind: initial_conditions
+schema_version: 1
+piles:
+- id: north-pile
+  amount: 0
+- id: south-pile
+  amount: 0
+infeeds:
+- id: mill
+  amount: 100
+loaders:
+- id: loader
+  location:
+    x: 0
+    y: 0

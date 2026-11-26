@@ -6,7 +6,7 @@ from itertools import combinations
 from mill_yard.layouts.config import LayoutConfig
 from mill_yard.model.types import Point
 from mill_yard.model.yard import YardScenario
-from mill_yard.policies.joint import ThresholdPolicy
+from mill_yard.policies.factory import create_policy
 from mill_yard.records.persistence import summary
 from mill_yard.simulation.engine import run_yard
 
@@ -59,9 +59,9 @@ def constraint_violations(config: LayoutConfig, vector) -> tuple[float, ...]:
 
 
 def evaluate_layout(config: LayoutConfig, vector) -> LayoutEvaluation:
-    """Run the threshold dispatch simulation and return weighted cost and violations."""
+    """Run the configured-policy simulation and return cost and violations."""
     scenario = vector_to_scenario(config, vector)
-    result = run_yard(scenario, ThresholdPolicy(), record="summary")
+    result = run_yard(scenario, create_policy(config.policy), record="summary")
     metrics = summary(result)
     starvation = sum(metrics["starvation"].values())
     waiting = metrics["completed_truck_wait_total"] + metrics["unfinished_truck_wait_so_far"]

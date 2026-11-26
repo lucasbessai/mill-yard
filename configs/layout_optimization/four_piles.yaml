@@ -1,0 +1,17 @@
+# Layout search settings for the composed 3-area, 6-bay test scenario.
+# All four pile coordinates are decision variables; vector order follows point_ids.
+yard: ../yards/3areas_central__6bays_4piles_1mill_3loaders.yaml
+truck_schedule: ../truck_schedules/3areas_central__042trucks_waves_480min.yaml
+initial_conditions: ../initial_conditions/3areas_central__6bays_4piles_1mill_3loaders__partial_stock.yaml
+policy: fifo
+algorithm: exhaustive
+point_ids: [p1, p2, p3, p4]
+initial: [-200, 140, 200, 140, -200, -140, 200, -140]
+bounds:
+  x: [-1000, 1000]
+  y: [-1000, 1000]
+min_spacing: 30
+objective_weights:
+  starvation: 1
+  truck_waiting: 1
+  loader_travel: 0

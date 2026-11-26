@@ -40,6 +40,12 @@ Each location has a distinct role:
 
 The `.venv/` directory is created on a developer’s machine by `uv sync`; it should be ignored by Git, not committed. It contains the local Python environment and installed packages, which can be recreated from the project files.
 
+Simulation inputs are organized under `configs/yards/`, `configs/truck_schedules/`,
+and `configs/initial_conditions/`. Small presets in `configs/experiments/` reference
+those reusable files; policies and optimization settings have their own directories.
+`src/mill_yard/config/` contains the Python loaders rather than input data. See
+[configuration composition](configuration.md) for schemas and compatibility rules.
+
 ## 2. `pyproject.toml`: package and tool configuration
 
 `pyproject.toml` is the standard home for Python project metadata and packaging configuration. It can also hold settings for tools such as pytest and Ruff. Its sections use TOML (Tom’s Obvious Minimal Language), a text format designed to be readable and straightforward to edit. The PyPA documentation describes `pyproject.toml` as a configuration file used by packaging tools and other development tools [2].
