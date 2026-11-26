@@ -10,51 +10,144 @@ digraph MillYard {
   subgraph cluster_model {
     label="mill_yard.model"; color="#8bbbd2"; style="rounded,filled"; fillcolor="#f2f9fc";
     YardScenario [label="{YardScenario|horizon\larrivals\lwake_mode\lwake_interval\l}", fillcolor="#e0f2fe"];
-    StopSpec [label="{StopSpec}"];
+    YardDesign [label="{YardDesign|fixed assets and equipment\l}"];
+    PileDesign [label="{PileDesign|location, capacity\l}"];
+    InfeedDesign [label="{InfeedDesign|mill rate and thresholds\l}"];
+    LoaderDesign [label="{LoaderDesign|capacity, speed, handling rates\l}"];
+    TruckSchedule [label="{TruckSchedule|horizon, arrivals\l}"];
+    ScheduledArrival [label="{ScheduledArrival|time, quantity, optional area\l}"];
+    InitialConditions [label="{InitialConditions|pile/infeed stock, loader starts\l}"];
+    ConfigurationSource [label="{ConfigurationSource|kind, path, SHA-256\lprovenance only\l}"];
+    YardDesign -> {PileDesign InfeedDesign LoaderDesign} [arrowtail=diamond, dir=back];
+    TruckSchedule -> ScheduledArrival [arrowtail=diamond, dir=back];
+    {YardDesign TruckSchedule InitialConditions} -> YardScenario [style=dashed, label="compose"];
+    YardScenario -> ConfigurationSource [style=dashed];
+    UnloadingAreaSpec [label="{UnloadingAreaSpec|id, queue_location\l}"];
+    StopSpec [label="{StopSpec|area_id\l}"];
     PileSpec [label="{PileSpec}"];
     InfeedSpec [label="{InfeedSpec}"];
     LoaderSpec [label="{LoaderSpec}"];
     { rank=same; StopSpec; PileSpec; InfeedSpec; LoaderSpec; }
-    YardScenario -> {StopSpec PileSpec InfeedSpec LoaderSpec} [arrowtail=diamond, dir=back];
-    YardState [label="{YardState|time\lqueue, stops\lconsumed, starvation\l}", fillcolor="#e0f2fe"];
-    TruckState [label="{TruckState}"];
-    InventoryState [label="{InventoryState|amount\lincoming, outgoing\l}"];
+    YardScenario -> {UnloadingAreaSpec StopSpec PileSpec InfeedSpec LoaderSpec} [arrowtail=diamond, dir=back];
+    StopSpec -> UnloadingAreaSpec [label="belongs to"];
+    YardState [label="{YardState|time\lqueues by area, stops\lconsumed, starvation\l}", fillcolor="#e0f2fe"];
+    TruckState [label="{TruckState|area_id, stop_id\l}"];
+    InventoryState [label="{InventoryState|amount\lreserved_incoming\lreserved_outgoing\l}"];
     LoaderState [label="{LoaderState|location, phase\lcarried, assignment\l}"];
+    HandlingState [label="{HandlingState|users, FIFO queue\l}"];
     Assignment [label="{Assignment|loader_id\lsource_id\ldestination_id\lquantity\l}"];
     { rank=same; TruckState; InventoryState; LoaderState; }
     YardState -> {TruckState InventoryState LoaderState} [arrowtail=diamond, dir=back];
+    YardState -> HandlingState [arrowtail=diamond, dir=back];
     LoaderState -> Assignment [label="current job"];
+  }
+
+  subgraph cluster_config {
+    label="mill_yard.config"; color="#8bbbd2"; style="rounded,filled"; fillcolor="#f2f9fc";
+    ScenarioFiles [label="{ScenarioFiles|yard, truck_schedule, initial_conditions\loptional experiment / overrides\lload()\l}"];
+    ScenarioFiles -> {YardDesign TruckSchedule InitialConditions} [style=dashed, label="loads YAML"];
   }
 
   subgraph cluster_dispatch {
     label="mill_yard.policies"; color="#8fc7a2"; style="rounded,filled"; fillcolor="#f1faf4";
-    JointPolicy [label="{«protocol»\nJointPolicy|+ choose(state, scenario)\l+ wake_levels(state, scenario)\l}", fillcolor="#dcfce7"];
+    DispatchPolicy [label="{«protocol»\nDispatchPolicy|+ choose(state, context)\l+ wake_levels(state, context)\l}", fillcolor="#dcfce7"];
     ThresholdPolicy [label="{ThresholdPolicy}"];
+    FifoPolicy [label="{FifoPolicy|low infeed, full pile, FIFO\lfuller loads before pile proximity\l}"];
+    FifoParameters [label="{FifoParameters|25% trigger, 65-75% refill\l2 delivery cycles\l}"];
+    EmptyQueueFirstPolicy [label="{EmptyQueueFirstPolicy}"];
+    LongestQueueFirstPolicy [label="{LongestQueueFirstPolicy}"];
+    FifoTruckRule [label="{FifoTruckRule|select_pair() / on_reserved()\l}"];
+    EmptyQueueFirstRule [label="{EmptyQueueFirstRule|per-loader preferred area\l}"];
+    LongestQueueFirstRule [label="{LongestQueueFirstRule|count, wait, arrival, ID\l}"];
     RandomPolicy [label="{RandomPolicy}"];
     ScoredPolicy [label="{ScoredPolicy}"];
     ScoredParameters [label="{ScoredParameters}"];
+    FeatureScoredPolicy [label="{FeatureScoredPolicy|complete assignment-set search\ljoint_features() / score_joint()\l}"];
+    FeatureScoredParameters [label="{FeatureScoredParameters}"];
+    FeatureWeights [label="{FeatureWeights|truck, mill, inventory, cost\lbay_release; sum = 1\l}"];
+    FeatureParameters [label="{FeatureParameters|fixed scales and cost assumptions\l}"];
+    DispatchFeatures [label="{DispatchFeatures|truck, mill, inventory, cost\lbay_release; each in [0, 1]\l}"];
+    BayReleaseForecast [label="{BayReleaseForecast|marginal queued admission wait\llast pickup; committed baseline\l}"];
+    PolicyContext [label="{PolicyContext|equipment, horizon\l(no future arrivals)\l}"];
+    HumanControlledPolicy [label="{HumanControlledPolicy}"];
+    TerminalHumanPolicy [label="{TerminalHumanPolicy}"];
+    DecisionRequest [label="{DecisionRequest|state, context\l}"];
+    HumanDecision [label="{HumanDecision|draft assignments\ladd() / undo()\l}"];
     { rank=same; ThresholdPolicy; RandomPolicy; ScoredPolicy; }
-    ThresholdPolicy -> JointPolicy [arrowhead=empty, style=dashed];
-    RandomPolicy -> JointPolicy [arrowhead=empty, style=dashed];
-    ScoredPolicy -> JointPolicy [arrowhead=empty, style=dashed];
+    ThresholdPolicy -> DispatchPolicy [arrowhead=empty, style=dashed];
+    FifoPolicy -> DispatchPolicy [arrowhead=empty, style=dashed];
+    FifoPolicy -> FifoParameters;
+    {EmptyQueueFirstPolicy LongestQueueFirstPolicy} -> FifoPolicy [arrowhead=empty];
+    FifoPolicy -> FifoTruckRule [label="truck selector"];
+    {EmptyQueueFirstRule LongestQueueFirstRule} -> FifoTruckRule [arrowhead=empty];
+    EmptyQueueFirstPolicy -> EmptyQueueFirstRule [style=dashed];
+    LongestQueueFirstPolicy -> LongestQueueFirstRule [style=dashed];
+    RandomPolicy -> DispatchPolicy [arrowhead=empty, style=dashed];
+    ScoredPolicy -> DispatchPolicy [arrowhead=empty, style=dashed];
     ScoredPolicy -> ScoredParameters;
+    FeatureScoredPolicy -> DispatchPolicy [arrowhead=empty, style=dashed];
+    FeatureScoredPolicy -> FeatureScoredParameters;
+    FeatureScoredParameters -> {FeatureWeights FeatureParameters};
+    FeatureScoredPolicy -> DispatchFeatures [style=dashed, label="extracts"];
+    FeatureScoredPolicy -> BayReleaseForecast [style=dashed, label="forecasts"];
+    DispatchPolicy -> PolicyContext [style=dashed];
+    HumanControlledPolicy -> DispatchPolicy [arrowhead=empty, style=dashed];
+    TerminalHumanPolicy -> HumanControlledPolicy [arrowhead=empty];
+    HumanControlledPolicy -> DecisionRequest [style=dashed, label="requests"];
+    HumanDecision -> DecisionRequest;
   }
 
   subgraph cluster_simulation {
     label="mill_yard.simulation"; color="#d2b269"; style="rounded,filled"; fillcolor="#fffbeb";
-    YardSimulation [label="{YardSimulation|+ run() → YardResult\l}", fillcolor="#fef3c7"];
+    YardSimulation [label="{YardSimulation|start() / step() / run()\lsubmit_decision()\lresult() → YardResult\l}", fillcolor="#fef3c7"];
     YardResult [label="{YardResult|scenario, state\lcompleted_trucks, events\l}"];
+    Consumption [label="{Consumption|advance() / settle()\lschedule()\l}"];
+    LoaderProcesses [label="{LoaderProcesses|job() / travel()\l}"];
+    TruckAdmission [label="{TruckAdmission|arrivals() / admit()\larea-local FIFO bays\l}"];
+    YardSimulation -> {Consumption LoaderProcesses TruckAdmission} [arrowtail=diamond, dir=back];
   }
   subgraph cluster_records {
     label="mill_yard.records"; color="#b0a2cb"; style="rounded,filled"; fillcolor="#f8f5fc";
     Recorder [label="{Recorder|+ emit(state, event)\l}"];
+    EventRecord [label="{EventRecord|sequence, time, event\ldetails, state\l}"];
+    Recorder -> EventRecord [style=dashed];
   }
+  subgraph cluster_optimization {
+    label="mill_yard.optimization"; color="#b0a2cb"; style="rounded,filled"; fillcolor="#f8f5fc";
+    FeatureWeightSpace [label="{FeatureWeightSpace|trainable / fixed named weights\lbuild_weights() / from_vector()\l}"];
+    FeatureWeightSpace -> FeatureWeights [style=dashed, label="builds"];
+  }
+  subgraph cluster_gui {
+    label="mill_yard.gui"; color="#c19b87"; style="rounded,filled"; fillcolor="#fff5ef";
+    YardApplication [label="{YardApplication|Tk canvas and controls\l}"];
+    ArcadeYardWindow [label="{ArcadeYardWindow|zoom, map/panel dispatch\l}"];
+    ScenarioDialog [label="{ScenarioDialog|browse YAML configs\l}"];
+    MetricDialog [label="{MetricDialog|per-mill, loader, truck totals\l}"];
+    YardRenderer [label="{YardRenderer|Arcade yard schematic\l}"];
+    YardCamera [label="{YardCamera|fit() / zoom_at() / pan()\l}"];
+    ScrollList [label="{ScrollList|full history, scroll position\l}"];
+    SimulationSession [label="{SimulationSession|step() / tick() / submit()\l}"];
+    ConfigurationDraft [label="{ConfigurationDraft|staged inputs and horizon\lvalidate() / files()\l}"];
+    TkConfigurationDialog [label="{tk_configuration.ConfigurationDialog|native input selectors\l}"];
+    ArcadeConfigurationDialog [label="{arcade_dialogs.ConfigurationDialog|input selectors and nested browser\l}"];
+    {TkConfigurationDialog ArcadeConfigurationDialog} -> ConfigurationDraft;
+    ConfigurationDraft -> ScenarioFiles [style=dashed, label="validates / applies"];
+    YardApplication -> TkConfigurationDialog;
+    ArcadeYardWindow -> ArcadeConfigurationDialog;
+    YardApplication -> SimulationSession;
+    ArcadeYardWindow -> SimulationSession;
+    ArcadeYardWindow -> {YardRenderer YardCamera ScrollList};
+    ArcadeYardWindow -> ScenarioDialog;
+    ArcadeYardWindow -> MetricDialog;
+  }
+  SimulationSession -> YardSimulation;
+  SimulationSession -> HumanDecision [style=dashed];
   YardSimulation -> Recorder;
   YardSimulation -> YardResult [style=dashed, label="returns"];
   YardSimulation -> YardScenario [label="uses"];
   YardSimulation -> YardState [label="updates"];
-  YardSimulation -> JointPolicy [label="requests decisions"];
-  JointPolicy -> Assignment [style=dashed, label="selects", constraint=false];
+  YardSimulation -> DispatchPolicy [label="requests decisions"];
+  DispatchPolicy -> Assignment [style=dashed, label="selects", constraint=false];
   YardResult -> YardScenario [style=dashed];
   YardResult -> YardState [style=dashed];
 }
