@@ -21,6 +21,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+optimization = ["omads==2610.0"]
 # Tkinter is supplied by Python/OS; Arcade is an optional OpenGL frontend.
 gui = ["arcade>=3.3.3,<4"]
 

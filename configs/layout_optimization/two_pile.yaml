@@ -1,0 +1,17 @@
+# Layout search settings for the composed multi-mill two-pile test scenario.
+# The yard config supplies fixed POI locations and baseline pile coordinates.
+yard: ../yards/1area_multi_mill__2bays_2piles_2mills_2loaders_mixed.yaml
+truck_schedule: ../truck_schedules/1area_multi_mill__004trucks_burst_120min.yaml
+initial_conditions: ../initial_conditions/1area_multi_mill__2bays_2piles_2mills_2loaders_mixed__mixed_stock.yaml
+policy: fifo
+algorithm: exhaustive
+point_ids: [pile-1, pile-2]
+initial: [100, 0, 100, 40]
+bounds:
+  x: [-50, 250]
+  y: [-50, 100]
+min_spacing: 5
+objective_weights:
+  starvation: 1
+  truck_waiting: 1
+  loader_travel: 1

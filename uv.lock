@@ -899,6 +899,9 @@ dependencies = [
 gui = [
     { name = "arcade" },
 ]
+optimization = [
+    { name = "omads" },
+]
 
 [package.dev-dependencies]
 dev = [
@@ -914,11 +917,12 @@ requires-dist = [
     { name = "matplotlib", specifier = ">=3.8" },
     { name = "numpy", specifier = ">=1.26" },
     { name = "omads", specifier = "==2610.0" },
+    { name = "omads", marker = "extra == 'optimization'", specifier = "==2610.0" },
     { name = "pyyaml", specifier = ">=6.0" },
     { name = "scipy", specifier = ">=1.15" },
     { name = "simpy", specifier = ">=4.1" },
 ]
-provides-extras = ["gui"]
+provides-extras = ["gui", "optimization"]
 
 [package.metadata.requires-dev]
 dev = [

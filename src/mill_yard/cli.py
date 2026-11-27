@@ -22,6 +22,43 @@ def main(argv: list[str] | None = None) -> int:
     commands = parser.add_subparsers(dest="command", required=True)
     run = commands.add_parser("run", help="Run a YAML scenario, optionally with terminal input")
     gui = commands.add_parser("gui", help="Watch or operate a yard in a desktop window")
+    layout = commands.add_parser("optimize-layout", help="Optimize POI coordinates in a layout YAML")
+    layout.add_argument(
+        "config",
+        nargs="?",
+        default="configs/layout_optimization/four_piles.yaml",
+        help="Layout YAML (default: configs/layout_optimization/four_piles.yaml)",
+    )
+    layout.add_argument(
+        "--budget", type=int, help="Maximum number of simulation evaluations"
+    )
+    layout.add_argument(
+        "--precision",
+        type=float,
+        help="Stop when the largest coordinate mesh step is at most this many meters",
+    )
+    layout.add_argument("--seed", type=int, default=0)
+    layout.add_argument(
+        "--algorithm",
+        choices=("exhaustive", "opportunistic"),
+        help="Override the search algorithm from the layout YAML",
+    )
+    layout.add_argument("--quiet", action="store_true", help="Suppress grid-refinement messages")
+    layout.add_argument("--plot", metavar="PATH", help="Save incumbent locations as a plot")
+    layout.add_argument("--show-plot", action="store_true", help="Open the plot after the search")
+    searchtree = commands.add_parser(
+        "searchtreeoptimizer",
+        help="Calibrate random paths and optimize dispatch decisions with OMADS",
+    )
+    searchtree.add_argument("scenario", help="Experiment preset or legacy scenario YAML")
+    searchtree.add_argument("--decision-length", type=int, default=10)
+    searchtree.add_argument("--samples", type=int, default=100)
+    searchtree.add_argument("--budget", type=int, default=20)
+    searchtree.add_argument("--seed", type=int, default=0)
+    searchtree.add_argument("--starvation-weight", type=float, default=1.0)
+    searchtree.add_argument("--truck-waiting-weight", type=float, default=1.0)
+    searchtree.add_argument("--loader-travel-weight", type=float, default=1.0)
+    searchtree.add_argument("--post-dir", default="runs/omads-workflow")
     for command in (run, gui):
         command.add_argument(
             "scenario", nargs="?", help="Experiment preset or legacy combined scenario"
@@ -91,6 +128,63 @@ def main(argv: list[str] | None = None) -> int:
         help="Playback speed in simulation minutes per real second",
     )
     args = parser.parse_args(argv)
+    if args.command == "optimize-layout":
+        from mill_yard.layouts.config import load_layout_config
+        from mill_yard.layouts.optimizer import optimize_layout
+
+        budget = args.budget
+        precision = args.precision
+        if budget is None and precision is None:
+            budget, precision = 100, 1e-3
+        result = optimize_layout(
+            load_layout_config(args.config),
+            budget=budget,
+            precision=precision,
+            seed=args.seed,
+            verbose=not args.quiet,
+            algorithm=args.algorithm,
+        )
+        print(f"Evaluations: {result.evaluations}")
+        print(f"Best vector: {result.vector}")
+        print(f"Objective: {result.evaluation.objective:.6g}")
+        print(f"Constraint violations: {result.evaluation.violations}")
+        if args.plot or args.show_plot:
+            from mill_yard.layouts.visualization import plot_layout_trajectory
+
+            plot_layout_trajectory(
+                load_layout_config(args.config),
+                result.trajectory,
+                output=args.plot,
+                show=args.show_plot,
+            )
+            if args.plot:
+                print(f"Trajectory plot: {args.plot}")
+        return 0
+    if args.command == "searchtreeoptimizer":
+        from mill_yard.searchtree.objective import ObjectiveWeights
+        from mill_yard.searchtree.workflow import run_search_workflow
+
+        scenario = select_scenario_files(args.scenario).load()
+        result = run_search_workflow(
+            scenario,
+            decision_length=args.decision_length,
+            samples=args.samples,
+            budget=args.budget,
+            seed=args.seed,
+            weights=ObjectiveWeights(
+                starvation=args.starvation_weight,
+                truck_waiting=args.truck_waiting_weight,
+                loader_travel=args.loader_travel_weight,
+            ),
+            post_dir=args.post_dir,
+        )
+        print(f"Calibration samples: {result.calibration.sample_count}")
+        print(f"Decision length: {result.calibration.decision_length}")
+        print(f"Calibration statistics: {result.calibration.statistics}")
+        print(f"Calibration details: {result.calibration_path}")
+        print(f"OMADS result: {result.optimizer_result}")
+        return 0
+
     components = (args.yard, args.truck_schedule, args.initial_conditions)
     if args.scenario is not None and any(x is not None for x in components):
         parser.error("Choose an experiment path or --yard/--truck-schedule/--initial-conditions")
